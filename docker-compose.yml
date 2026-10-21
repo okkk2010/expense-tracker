@@ -1,0 +1,36 @@
+services:
+  backend:
+    build: ./backend
+    init: true
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_ACCESS_TOKEN: ${APP_ACCESS_TOKEN:?Set a personal access token in .env}
+      DB_PATH: /app/data/moa.db
+      CORS_ORIGINS: ${FRONTEND_ORIGIN:?Set the Vercel frontend origin in .env}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ledger_data:/app/data
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      API_HOST: ${API_HOST:?Set the backend domain in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+volumes:
+  ledger_data:
+  caddy_data:
+  caddy_config:

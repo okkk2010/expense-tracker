@@ -1,0 +1,14 @@
+{
+  "name": "moa-ledger",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "dev:backend": "npm --prefix backend run dev",
+    "start:backend": "npm --prefix backend start",
+    "check:backend": "npm --prefix backend run check",
+    "test:backend": "npm --prefix backend test"
+  }
+}
