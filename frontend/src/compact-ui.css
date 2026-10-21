@@ -1,0 +1,258 @@
+.page-intro {
+  margin: 18px 0 20px;
+  gap: 16px;
+}
+
+.page-intro h1 {
+  font-size: 24px;
+  letter-spacing: -0.7px;
+}
+
+.page-intro > .primary-button,
+.workspace-intro .button-row {
+  margin-top: 0;
+}
+
+.overview-top-compact {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.overview-top-compact .expense-hero {
+  min-height: 0;
+  padding: 20px 24px 16px;
+}
+
+.overview-top-compact .expense-hero::after {
+  content: none;
+}
+
+.overview-top-compact .hero-value {
+  margin-top: 12px;
+  font-size: 42px;
+}
+
+.overview-top-compact .daily-bars {
+  height: 42px;
+}
+
+.overview-top-compact .daily-bars > div {
+  min-height: 0;
+}
+
+.category-panel,
+.accounts-panel {
+  min-height: 0;
+}
+
+.accounts-list {
+  gap: 10px;
+}
+
+.account-item {
+  min-height: 30px;
+}
+
+.account-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dashboard-empty-compact,
+.budget-context-note {
+  color: #748168;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.dashboard-empty-compact {
+  padding: 18px 0;
+}
+
+.budget-context-note {
+  margin: -4px 0 18px;
+  max-width: 1000px;
+}
+
+.budget-detail-top {
+  margin-bottom: 10px;
+}
+
+.budget-state,
+.workspace-copy-status,
+.tag-archived-label {
+  color: #7b8a6e;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.budget-detail .budget-amount {
+  margin-bottom: 20px;
+}
+
+.compact-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 0;
+  color: #748168;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.compact-empty p {
+  font-size: 13px;
+}
+
+.workspace-intro {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.workbench {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.workspace-canvas {
+  min-height: 220px;
+  padding: 20px;
+  background: #f8faf5;
+}
+
+.workspace-empty {
+  min-height: 180px;
+  padding: 20px 12px;
+}
+
+.workspace-empty > p {
+  color: #748168;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.workspace-empty .suggestion-grid {
+  margin-top: 14px;
+  gap: 8px;
+}
+
+.workspace-empty .suggestion-grid button {
+  width: auto;
+  max-width: none;
+  min-height: 35px;
+  padding: 7px 10px;
+  color: #607650;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: none;
+}
+
+.workspace-copy-status {
+  white-space: nowrap;
+}
+
+.saved-space > div {
+  justify-content: flex-end;
+}
+
+.settings-panel .section-heading {
+  margin-bottom: 18px;
+}
+
+.backup-actions > p {
+  max-width: 500px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.sidebar nav {
+  margin-top: 28px;
+}
+
+.sidebar-bottom {
+  padding-top: 24px;
+}
+
+.sidebar-settings {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8d9;
+}
+
+.sidebar-settings > .nav-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-settings .sidebar-collapse {
+  flex-shrink: 0;
+  width: 32px;
+  height: 38px;
+  margin-left: 0;
+}
+
+.sidebar-small .sidebar nav {
+  margin-top: 28px;
+}
+
+.sidebar-small .sidebar-settings {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-small .sidebar-settings .nav-item {
+  min-height: 42px;
+}
+
+.sidebar-small .sidebar-settings .sidebar-collapse {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .page-intro {
+    margin-top: 15px;
+    margin-bottom: 17px;
+    gap: 12px;
+  }
+
+  .page-intro h1,
+  .workspace-intro h1 {
+    font-size: 22px;
+  }
+
+  .workspace-intro .button-row {
+    gap: 7px;
+  }
+
+  .workspace-canvas {
+    min-height: 200px;
+    padding: 14px;
+  }
+
+  .workspace-empty {
+    min-height: 170px;
+    padding: 12px 0;
+  }
+
+  .workspace-empty .suggestion-grid {
+    justify-content: center;
+    gap: 7px;
+  }
+
+  .workspace-empty .suggestion-grid button {
+    font-size: 12px;
+  }
+
+  .workspace-copy-status {
+    max-width: 90px;
+    font-size: 10px;
+    white-space: normal;
+  }
+
+  .budget-context-note {
+    font-size: 12px;
+  }
+}

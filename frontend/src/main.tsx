@@ -2,6 +2,7 @@ import React, { Component, type ReactNode } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './styles.css'
+import './compact-ui.css'
 
 class ErrorBoundary extends Component<{children:ReactNode},{failed:boolean}> {
   state={failed:false}

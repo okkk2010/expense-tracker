@@ -1,12 +1,12 @@
 import { useState } from 'react'
+import { ArrowDown, ArrowUpRight, Plus } from 'lucide-react'
 import { api, errorMessage } from '../api'
 import { demoTransactions } from '../demo'
-import { ArrowDown, ArrowRight, ArrowUpRight, ChartNoAxesCombined, CircleHelp, CornerDownRight, Plus, Sparkles, Wallet } from 'lucide-react'
-import type { Dashboard as DashboardData, Page, Transaction } from '../types'
+import type { Dashboard as DashboardData, Transaction } from '../types'
 import { money, monthLabel, monthRange, won } from '../utils'
-import { Empty, Loading, Modal, Progress, TransactionList } from './Shared'
+import { Empty, Loading, Modal, TransactionList } from './Shared'
 
-export function Dashboard({data,month,onPage,onAdd,demo=false}: {data:DashboardData;month:string;onPage:(page:Page)=>void;onAdd:()=>void;demo?:boolean}) {
+export function Dashboard({data,month,onAdd,demo=false}: {data:DashboardData;month:string;onAdd:()=>void;demo?:boolean}) {
   const [evidence,setEvidence]=useState<{title:string;categoryId:string}|null>(null)
   const [evidenceItems,setEvidenceItems]=useState<Transaction[]>([])
   const [evidenceBusy,setEvidenceBusy]=useState(false)
@@ -22,17 +22,25 @@ export function Dashboard({data,month,onPage,onAdd,demo=false}: {data:DashboardD
     }catch(error){setEvidenceError(errorMessage(error))}finally{setEvidenceBusy(false)}
   }
   const difference=data.previous_expense?Math.round((data.total_expense/data.previous_expense-1)*100):null
-  const maximum=Math.max(...data.by_category.map(x=>x.total),1)
-  const dailyMax=Math.max(...data.daily.map(x=>x.total),1)
-  const totalBudget=data.budgets.reduce((sum,item)=>sum+item.amount,0)
-  return <><div className="page-intro"><div><div className="eyebrow">YOUR MONEY, AT A GLANCE</div><h1>오늘도, 차곡차곡.</h1><p>작은 기록이 모여 나의 생활을 보여줍니다.</p></div><button className="primary-button" onClick={onAdd}><Plus size={17}/>거래 기록하기</button></div>
-    <div className="overview-top"><section className="expense-hero"><div className="hero-top"><span><span className="live-dot"/>{Number(month.split('-')[1])}월에 쓴 돈</span><span className="hero-mini">MONTHLY EXPENSE</span></div><div className="hero-value">{won(data.total_expense)}<span>원</span></div><div className="hero-comparison">{difference!==null?<><span className={`change-pill ${difference<=0?'positive':''}`}>{difference<=0?<ArrowDown size={13}/>:<ArrowUpRight size={13}/>} {Math.abs(difference)}%</span><span>지난달 전체 지출 대비</span></>:<span>기록이 쌓이면 지난달과 비교해 드릴게요.</span>}</div><div className="daily-bars" aria-label="날짜별 지출 추이">{(data.daily.length?data.daily:Array.from({length:24},(_,i)=>({date:String(i+1),total:0}))).map((day,i)=><div key={day.date} className={i===data.daily.length-1?'current':''} style={{height:`${data.daily.length?12+day.total/dailyMax*68:8}%`}} title={`${day.date} · ${money(day.total)}`}/>)}</div><div className="hero-bottom"><span>{monthLabel(month)}의 기록</span><strong>{data.transaction_count}건 <CornerDownRight size={14}/></strong></div></section>
-      <section className="insight-card"><div className="insight-symbol"><Sparkles size={21}/></div><div className="eyebrow">A LITTLE MORE CLARITY</div><h2>내 소비의 이야기를<br/>발견해 보세요.</h2><p>궁금한 것을 물어보고,<br/>기록 속 패턴을 카드로 모아두세요.</p><button className="text-button" onClick={()=>onPage('workspace')}>AI 작업 공간 열기 <ArrowUpRight size={17}/></button><span className="insight-decoration" aria-hidden="true">✳</span></section></div>
-    <div className="dashboard-grid"><section className="panel category-panel"><div className="section-heading"><div><span className="eyebrow">BY CATEGORY</span><h2>어디에 썼을까요</h2></div><span className="pill">종목별 지출</span></div>{data.total_expense?<div className="category-bars">{data.by_category.filter(item=>item.total>0).map((item,i)=><button type="button" className="category-line chart-click-target" key={item.id} onClick={()=>void showCategory(item.id,item.name)} aria-label={`${item.name} 지출에 포함된 거래 보기`} style={{display:"block",width:"100%",textAlign:"left",border:0,padding:0,background:"transparent",cursor:"pointer"}}><div className="category-label"><span><span className="color-dot" style={{background:item.color}}/>{item.name}</span><strong>{money(item.total)}<small>{Math.round(item.total/data.total_expense*100)}%</small></strong></div><div className="category-track"><span style={{width:`${item.total/maximum*100}%`,background:item.color,animationDelay:`${i*80}ms`}}/></div></button>)}</div>:<Empty icon={<ChartNoAxesCombined size={24}/>} title="첫 기록을 기다리고 있어요" text="거래를 입력하면 종목별 지출을 한눈에 볼 수 있어요."/>}<div className="panel-footnote"><CircleHelp size={13}/> 거래마다 선택한 하나의 종목을 기준으로 계산해요.</div></section>
-      <section className="panel accounts-panel"><div className="section-heading"><div><span className="eyebrow">MY MONEY CHANNELS</span><h2>네 곳의 돈 흐름</h2></div><Wallet size={19} className="muted"/></div><div className="accounts-list">{data.by_account.map((account,i)=><div className="account-item" key={account.id}><div className={`account-logo account-${i}`} style={{'--account-color':account.color} as React.CSSProperties}>{['IBK','KB','toss','＋'][i]||account.name.slice(0,2)}</div><div><strong>{account.name}</strong><span>{['월급 받는 통장','고정 생활비','구독료 · 교통비','여가 · 취미 · 데이트'][i]||'이번 달 기록'}</span></div><strong className="account-sum">{money(account.total)}</strong></div>)}</div><div className="panel-footnote">각 금융수단의 이번 달 지출 합계예요.</div></section></div>
-    <section className="panel budget-overview"><div className="section-heading"><div><span className="eyebrow">SPEND WITH INTENTION</span><h2>나의 태그 예산</h2></div><button className="text-button" onClick={()=>onPage('budgets')}>예산 관리 <ArrowRight size={16}/></button></div>{data.budgets.length?<><div className="budget-preview-grid">{data.budgets.slice(0,3).map(budget=><div className="budget-preview" key={budget.tag_id}><div><span className="subtle-tag">#{budget.tag_name}</span><span className={budget.remaining<0?'danger-text':'muted'}>{budget.amount?Math.round(budget.spent/budget.amount*100):0}%</span></div><p><strong>{money(budget.spent)}</strong><span> / {money(budget.amount)}</span></p><Progress value={budget.amount?budget.spent/budget.amount*100:0} className={budget.remaining<0?'over':''}/><small>{money(Math.abs(budget.remaining))} {budget.remaining<0?'초과했어요':'남았어요'}</small></div>)}</div><div className="panel-footnote">태그별 예산은 서로 겹칠 수 있어요. 전체 지출은 중복 없이 계산합니다.{totalBudget===0?' 비활성 예산은 소비 비율을 표시하지 않습니다.':''}</div></>:<div className="budget-empty-inline"><span>필요한 태그에만 예산을 설정해 보세요. 기록만 해도 괜찮아요.</span><button className="secondary-button" onClick={()=>onPage('budgets')}><Plus size={15}/>첫 예산 설정</button></div>}</section>
-    <section className="panel recent-panel"><div className="section-heading"><div><span className="eyebrow">RECENT RECORDS</span><h2>최근의 기록</h2></div><button className="text-button" onClick={()=>onPage('transactions')}>모든 거래 <ArrowRight size={16}/></button></div>{data.recent_transactions.length?<TransactionList items={data.recent_transactions} compact/>:<Empty title="이번 달 첫 기록을 남겨보세요" text="날짜를 고르고 여러 거래를 한 번에 입력할 수 있어요." action={<button className="secondary-button" onClick={onAdd}><Plus size={15}/>거래 기록하기</button>}/>}</section>
-    <div className="page-bottom-note">기록한 만큼, 조금 더 선명한 생활. <span>모아</span></div>
+  const maximum=Math.max(...data.by_category.map(item=>item.total),1)
+  const dailyMax=Math.max(...data.daily.map(item=>item.total),1)
+  const categories=data.by_category.filter(item=>item.total>0)
+
+  return <>
+    <div className="page-intro"><div><h1>한눈에 보기</h1><p>{monthLabel(month)}</p></div><button className="primary-button" onClick={onAdd}><Plus size={17}/>거래 기록하기</button></div>
+    <div className="overview-top overview-top-compact"><section className="expense-hero">
+      <div className="hero-top"><span>월 지출</span></div>
+      <div className="hero-value">{won(data.total_expense)}<span>원</span></div>
+      <div className="hero-comparison">{difference!==null?<><span className={`change-pill ${difference<=0?'positive':''}`}>{difference<=0?<ArrowDown size={13}/>:<ArrowUpRight size={13}/>} {Math.abs(difference)}%</span><span>지난달 전체 지출 대비</span></>:<span>지난달 지출 {money(data.previous_expense)}</span>}</div>
+      {data.daily.some(day=>day.total>0)&&<div className="daily-bars" role="img" aria-label="날짜별 지출 추이">{data.daily.map((day,index)=><div key={day.date} className={index===data.daily.length-1?'current':''} style={{height:`${day.total>0?12+day.total/dailyMax*68:0}%`}} title={`${day.date} · ${money(day.total)}`}/>)}</div>}
+      <div className="hero-bottom"><span>거래 수</span><strong>{data.transaction_count}건</strong></div>
+    </section></div>
+    <div className="dashboard-grid">
+      <section className="panel category-panel"><div className="section-heading"><h2>종목별 지출</h2></div>
+        {categories.length>0?<div className="category-bars">{categories.map((item,index)=><button type="button" className="category-line chart-click-target" key={item.id} onClick={()=>void showCategory(item.id,item.name)} aria-label={`${item.name} 지출에 포함된 거래 보기`} style={{display:'block',width:'100%',textAlign:'left',border:0,padding:0,background:'transparent',cursor:'pointer'}}><div className="category-label"><span><span className="color-dot" style={{background:item.color}}/>{item.name}</span><strong>{money(item.total)}<small>{data.total_expense?Math.round(item.total/data.total_expense*100):0}%</small></strong></div><div className="category-track"><span style={{width:`${item.total/maximum*100}%`,background:item.color,animationDelay:`${index*80}ms`}}/></div></button>)}</div>:<p className="dashboard-empty-compact">이 기간의 지출이 없습니다.</p>}
+      </section>
+      <section className="panel accounts-panel"><div className="section-heading"><h2>금융수단별 지출</h2></div><div className="accounts-list">{data.by_account.map(account=><div className="account-item" key={account.id}><strong className="account-name">{account.name}</strong><strong className="account-sum">{money(account.total)}</strong></div>)}</div></section>
+    </div>
     {evidence&&<Modal title={evidence.title} subtitle={`${monthRange(month).start} — ${monthRange(month).end} · 거래일 기준 · 지출`} onClose={()=>setEvidence(null)}>{evidenceError&&<p className="inline-note">{evidenceError}</p>}{evidenceBusy?<Loading/>:evidenceItems.length?<TransactionList items={evidenceItems}/>:<Empty title="포함된 거래가 없어요" text="선택한 종목과 기간에 맞는 기록을 확인해 주세요."/>}</Modal>}
   </>
 }

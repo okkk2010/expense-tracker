@@ -209,7 +209,7 @@ export function DesktopTransactionEditor({ bootstrap, initial, onClose, onSaved,
     focusCell(0, GRID_COLUMNS.indexOf('note'))
   }
 
-  return <Modal title={initial ? '거래 수정' : '한눈에, 거래 기록'} subtitle={initial ? '표에서 기록을 수정하고 변경 내용을 저장하세요.' : '엑셀처럼 셀을 이동하며 입력하거나 여러 거래를 한 번에 붙여넣으세요.'} onClose={close} wide>
+  return <Modal title={initial ? '거래 수정' : '거래 입력'} subtitle={initial ? '표에서 기록을 수정하고 변경 내용을 저장하세요.' : '엑셀처럼 셀을 이동하며 입력하거나 여러 거래를 한 번에 붙여넣으세요.'} onClose={close} wide>
     <div className="transaction-grid-editor" ref={root}><form noValidate onSubmit={event => { event.preventDefault(); void save() }} onKeyDown={event => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); if (!event.nativeEvent.isComposing) void save() }
     }}>
