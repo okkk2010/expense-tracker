@@ -58,7 +58,17 @@ AI는 분석 계획과 표현을 돕고, 수치는 코드로 조회한 실제 �
 
 ## 배포
 
-Vercel과 별도 서버의 연결 및 실행 순서는 [배포 안내](docs/deployment.md)에 있습니다. 프론트엔드 프로젝트 Root Directory는 `frontend`입니다. 백엔드 데이터는 서버의 영속 볼륨에 보관합니다.
+도메인 없이 Vercel 프록시를 통해 기존 공인 서버의 백엔드에 연결합니다.
+
+```text
+브라우저 → HTTPS Vercel /api → HTTP 115.68.223.74:8000/api
+```
+
+Vercel은 Root Directory `frontend`, Framework `Vite`, Build Command `npm run build`, Output Directory `dist`로 설정합니다. `VITE_API_URL`은 `/api`로 설정하거나 생략합니다. 이미 절대 주소를 설정했다면 `/api`로 바꾼 뒤 다시 배포하고, 앱의 저장된 서버 API 주소도 `/api`로 변경합니다.
+
+서버에서는 프로젝트 최상위 `.env.example`을 `.env`로 복사해 `FRONTEND_ORIGIN`에 실제 Vercel 주소, `APP_ACCESS_TOKEN`에 긴 랜덤 접속키를 넣고 `docker compose up -d --build backend`를 실행합니다. 기본 공개 포트는 `8000`이며 Vercel에서 접근할 수 있어야 합니다. 기본 구성은 백엔드만 실행하므로 기존 서비스의 80·443·3000 포트를 사용하지 않습니다. Vercel과 백엔드 사이의 HTTP 통신은 암호화되지 않습니다.
+
+정확한 환경변수, 연결 확인, 선택적인 HTTPS 구성은 [배포 안내](docs/deployment.md)에 있습니다. 백엔드 데이터는 서버의 영속 볼륨에 보관합니다.
 
 ## 검증
 

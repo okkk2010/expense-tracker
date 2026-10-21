@@ -12,14 +12,23 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
     volumes:
       - ledger_data:/app/data
   caddy:
     image: caddy:2-alpine
+    profiles: ["https"]
     restart: unless-stopped
     environment:
-      API_HOST: ${API_HOST:?Set the backend domain in .env}
+      API_HOST: ${API_HOST:-}
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if [ -z "$$API_HOST" ]; then
+          echo "Set API_HOST in .env before enabling the https profile." >&2
+          exit 1
+        fi
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     ports:
       - "80:80"
       - "443:443"

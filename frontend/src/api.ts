@@ -1,12 +1,18 @@
 import type { Connection } from './types'
 
-const defaultUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+const defaultUrl = import.meta.env.VITE_API_URL || '/api'
 export function getConnection(): Connection {
   try { return { url: localStorage.getItem('moa.api') || defaultUrl, token: localStorage.getItem('moa.token') || '' } }
   catch { return {url: defaultUrl, token: ''} }
 }
 export function saveConnection(connection: Connection) {
-  localStorage.setItem('moa.api', connection.url.trim().replace(/\/+$/, ''))
+  const url = connection.url.trim().replace(/\/+$/, '')
+  if (url !== '/api') {
+    let valid = false
+    try { valid = ['http:', 'https:'].includes(new URL(url).protocol) } catch { /* Show the same guidance for invalid URLs. */ }
+    if (!valid) throw new Error('/api 또는 http://, https://로 시작하는 서버 주소를 입력해 주세요.')
+  }
+  localStorage.setItem('moa.api', url)
   localStorage.setItem('moa.token', connection.token.trim())
 }
 export class ApiError extends Error {
