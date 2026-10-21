@@ -1,12 +1,23 @@
 import type { Connection } from './types'
 
 const defaultUrl = import.meta.env.VITE_API_URL || '/api'
+// This endpoint is served by the same-origin Vercel rewrite. Older builds and
+// browser settings may still contain its direct HTTP address.
+function connectionUrl(value: string): string {
+  if (typeof window === 'undefined' || window.location.protocol !== 'https:') return value
+  try {
+    const url = new URL(value)
+    if (url.origin === 'http://115.68.223.74:8000' && url.pathname.replace(/\/+$/, '') === '/api'
+      && !url.search && !url.hash && !url.username && !url.password) return '/api'
+  } catch { /* Relative URLs already use the app's own origin. */ }
+  return value
+}
 export function getConnection(): Connection {
-  try { return { url: localStorage.getItem('moa.api') || defaultUrl, token: localStorage.getItem('moa.token') || '' } }
-  catch { return {url: defaultUrl, token: ''} }
+  try { return { url: connectionUrl(localStorage.getItem('moa.api') || defaultUrl), token: localStorage.getItem('moa.token') || '' } }
+  catch { return {url: connectionUrl(defaultUrl), token: ''} }
 }
 export function saveConnection(connection: Connection) {
-  const url = connection.url.trim().replace(/\/+$/, '')
+  const url = connectionUrl(connection.url.trim().replace(/\/+$/, ''))
   if (url !== '/api') {
     let valid = false
     try { valid = ['http:', 'https:'].includes(new URL(url).protocol) } catch { /* Show the same guidance for invalid URLs. */ }
