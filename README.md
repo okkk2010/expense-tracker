@@ -35,6 +35,7 @@ npm --prefix frontend run dev
 
 ## 사용 흐름
 
+- PC에서는 거래를 표에 이어 입력합니다. Tab·Shift+Tab으로 셀을, Enter·Shift+Enter로 행을 이동하고 Ctrl/Cmd+Enter로 저장합니다. 엑셀에서 복사한 여러 행은 날짜·유형·금융수단·종목·메모·태그·금액 순서로 붙여넣을 수 있습니다. 빈 행은 저장에서 제외하며 잘못된 값은 셀에 표시합니다. 모바일은 날짜 중심의 거래 입력 폼을 사용합니다.
 - 달력에서 날짜를 선택한 뒤 같은 날짜의 여러 거래를 이어 입력합니다. 입력 주기는 고정하지 않습니다.
 - 거래당 종목 하나와 복수 태그를 사용합니다. 계좌·카드 4개는 합의한 역할로 초기 구성됩니다.
 - 예산 하나에 태그 하나를 연결합니다. 다음 달 예산을 따로 정하지 않았다면 당월 설정 금액을 이어받습니다. 남은 금액·초과액은 이월하지 않고 과거 월을 소급 수정하지 않습니다.
@@ -74,6 +75,7 @@ Vercel은 Root Directory `frontend`, Framework `Vite`, Build Command `npm run bu
 
 ```powershell
 npm --prefix frontend run build
+npm --prefix frontend test
 npm run check:backend
 npm run test:backend
 ```
