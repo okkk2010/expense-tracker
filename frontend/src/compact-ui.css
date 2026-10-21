@@ -55,6 +55,33 @@
 .account-name {
   font-size: 12px;
   font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.account-summary-details {
+  min-width: 0;
+}
+
+.accounts-panel .account-summary-details > .account-name {
+  font-size: 12px;
+}
+
+.account-summary-details p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.accounts-panel .account-item {
+  flex-wrap: nowrap;
+}
+
+.accounts-panel .account-sum {
+  flex-shrink: 0;
+  font-size: 12px;
 }
 
 .dashboard-empty-compact,
@@ -150,6 +177,16 @@
 
 .workspace-copy-status {
   white-space: nowrap;
+}
+
+.workspace-filter-bar {
+  flex-wrap: wrap;
+}
+
+.workspace-filter-bar > span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .saved-space > div {

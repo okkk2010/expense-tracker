@@ -4,7 +4,7 @@ export type GridColumn = 'date' | 'kind' | 'account' | 'category' | 'note' | 'ta
 export const GRID_COLUMNS: readonly GridColumn[] = ['date', 'kind', 'account', 'category', 'note', 'tags', 'amount']
 export type GridRow = { id: string; date: string; kind: string; account: string; category: string; note: string; tags: string; amount: string }
 export type GridErrors = Record<string, Partial<Record<GridColumn, string>>>
-export type GridValidationOptions = { existingTagIds?: Record<string, string[]> }
+export type GridValidationOptions = { existingTagIds?: Record<string, string[]>; existingAccountIds?: Record<string, string> }
 
 const MAX_ROWS = 500
 const MAX_AMOUNT = 9_000_000_000_000
@@ -12,7 +12,7 @@ const MAX_AMOUNT = 9_000_000_000_000
 export function createGridRow(bootstrap: Bootstrap, date: string): GridRow {
   return {
     id: crypto.randomUUID(), date, kind: '지출',
-    account: bootstrap.accounts[1]?.name || bootstrap.accounts[0]?.name || '',
+    account: bootstrap.accounts.find(account => !account.archived)?.id || '',
     category: bootstrap.categories[0]?.name || '', note: '', tags: '', amount: '',
   }
 }
@@ -124,6 +124,7 @@ export function validateGridRows(
     if (!date) error.date = '실제 존재하는 날짜를 YYYY-MM-DD 형식으로 입력해 주세요.'
     if (!kind) error.kind = '지출, 수입, 이체 중 하나를 입력해 주세요.'
     if (!account) error.account = '등록된 금융수단의 이름이나 ID를 입력해 주세요.'
+    else if (account.archived && (!options.existingAccountIds || !Object.hasOwn(options.existingAccountIds, row.id) || options.existingAccountIds[row.id] !== account.id)) error.account = '보관한 금융수단은 새로 지정할 수 없어요. 사용 중인 항목을 선택해 주세요.'
     if (!category) error.category = '등록된 종목의 이름이나 ID를 입력해 주세요.'
     if (amount === null) error.amount = '금액은 0원부터 9조 원까지의 정수로 입력해 주세요.'
     if (note.length > 5000) error.note = '메모는 5,000자까지 입력할 수 있어요.'

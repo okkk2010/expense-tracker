@@ -39,13 +39,14 @@ export function DesktopTransactionEditor({ bootstrap, initial, onClose, onSaved,
   const [conflict, setConflict] = useState<Transaction | null>(null)
   const [conflictAction, setConflictAction] = useState<'save' | 'delete'>('save')
   const [existingTagIds, setExistingTagIds] = useState<Record<string, string[]>>(() => initial ? { [initial.id]: initial.tag_ids } : {})
+  const [existingAccountIds, setExistingAccountIds] = useState<Record<string, string>>(() => initial ? { [initial.id]: initial.account_id } : {})
   const baseline = useRef(initial ? rowValues(rows[0]) : '')
   const root = useRef<HTMLDivElement>(null)
   const helpId = useId()
   const tagListId = useId()
   const filledRows = rows.filter(row => !isGridRowEmpty(row))
   const expenseTotal = filledRows.reduce((sum, row) => {
-    const item = validateGridRows([row], bootstrap, { existingTagIds }).items[0]
+    const item = validateGridRows([row], bootstrap, { existingTagIds, existingAccountIds }).items[0]
     return item?.kind === 'expense' ? sum + item.amount : sum
   }, 0)
   const dirty = initial ? rowValues(rows[0]) !== baseline.current : filledRows.length > 0
@@ -154,7 +155,7 @@ export function DesktopTransactionEditor({ bootstrap, initial, onClose, onSaved,
   }
   async function save(overwriteVersion?: number) {
     if (busyRef.current || (conflict && overwriteVersion === undefined)) return
-    const result = validateGridRows(rows, bootstrap, { existingTagIds })
+    const result = validateGridRows(rows, bootstrap, { existingTagIds, existingAccountIds })
     setErrors(result.errors)
     if (Object.keys(result.errors).length) {
       setError('빨간색으로 표시된 셀을 확인해 주세요. 모든 행이 올바를 때 한 번에 저장돼요.')
@@ -204,6 +205,7 @@ export function DesktopTransactionEditor({ bootstrap, initial, onClose, onSaved,
     const latest = transactionRow(conflict, bootstrap)
     setRows([latest]); setBaseDate(latest.date); setSelectedId(latest.id)
     setVersion(conflict.version); setExistingTagIds({ [conflict.id]: conflict.tag_ids })
+    setExistingAccountIds({ [conflict.id]: conflict.account_id })
     baseline.current = rowValues(latest)
     setConflict(null); setErrors({}); setError('')
     focusCell(0, GRID_COLUMNS.indexOf('note'))
@@ -231,13 +233,13 @@ export function DesktopTransactionEditor({ bootstrap, initial, onClose, onSaved,
             const errorId = `${tagListId}-${row.id}-${column}-error`
             const common = { 'data-grid-row': index, 'data-grid-col': columnIndex, 'aria-label': `${index + 1}행 ${labels[column]}`, 'aria-invalid': !!message, 'aria-describedby': message ? errorId : undefined, disabled: busy, value: row[column], className: `grid-control grid-control-${column}`, onChange: (event: { target: { value: string } }) => update(row.id, column, event.target.value) }
             const tagPrefix = row.tags.includes(',') ? `${row.tags.slice(0, row.tags.lastIndexOf(',') + 1)} ` : ''
-            const catalog = column === 'account' ? bootstrap.accounts : column === 'category' ? bootstrap.categories : []
+            const catalog = column === 'account' ? bootstrap.accounts.filter(account => !account.archived || existingAccountIds[row.id] === account.id) : column === 'category' ? bootstrap.categories : []
             const byId = catalog.find(item => item.id === row[column].trim())
             const byName = catalog.filter(item => item.name === row[column].trim())
             const resolved = byId || (byName.length === 1 ? byName[0] : undefined)
             return <td key={column} className={`grid-cell grid-cell-${column} ${message ? 'is-invalid' : ''}`}>
               {column === 'kind' ? <select {...common}>{!Object.values(kinds).some(kind => kind === row.kind) && <option value={row.kind}>{Object.hasOwn(kindLabels, row.kind.trim().toLowerCase()) ? kindLabels[row.kind.trim().toLowerCase()] : row.kind || '선택'}</option>}{Object.values(kinds).map(kind => <option key={kind}>{kind}</option>)}</select>
-                : column === 'account' || column === 'category' ? <select {...common} value={resolved?.id || row[column]}><option value="">선택</option>{row[column] && !resolved && <option value={row[column]}>{row[column]}</option>}{catalog.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                : column === 'account' || column === 'category' ? <select {...common} value={resolved?.id || row[column]}><option value="">선택</option>{row[column] && !resolved && <option value={row[column]}>{row[column]}</option>}{catalog.map(item => <option key={item.id} value={item.id}>{item.name}{'archived' in item && item.archived ? ' · 보관됨' : ''}</option>)}</select>
                   : <input {...common} type="text" inputMode={column === 'amount' ? 'numeric' : column === 'date' ? 'numeric' : undefined} autoComplete="off" maxLength={column === 'note' ? 5000 : column === 'tags' ? 12200 : column === 'date' ? 32 : 64} placeholder={column === 'date' ? 'YYYY-MM-DD' : column === 'amount' ? '0' : column === 'tags' ? '태그, 태그' : '메모 입력'} list={column === 'tags' ? `${tagListId}-${row.id}` : undefined}/>}
               {column === 'tags' && <datalist id={`${tagListId}-${row.id}`}>{bootstrap.tags.filter(tag => !tag.archived || existingTagIds[row.id]?.includes(tag.id)).map(tag => <option key={tag.id} value={`${tagPrefix}${/[,#]/.test(tag.name) || bootstrap.tags.filter(item => item.name === tag.name).length > 1 ? tag.id : tag.name}`}>{tag.name}{tag.archived ? ' · 보관된 태그' : ''}</option>)}</datalist>}
               {message && <span className="grid-error" id={errorId}>{message}</span>}

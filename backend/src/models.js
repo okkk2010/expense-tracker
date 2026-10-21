@@ -28,6 +28,13 @@ export const batchInput = z.strictObject({ items: z.array(transactionInput).min(
 export const budgetInput = z.strictObject({ amount: money });
 export const namedInput = z.strictObject({ name: text().min(1).max(120), color: color.default('#64748b') });
 export const namedPatch = z.strictObject({ name: text().min(1).max(120).optional(), color: color.optional() });
+export const accountInput = z.strictObject({
+  name: text().min(1).max(120), description: text().max(5000).default(''), color: color.default('#64748b'),
+});
+export const accountPatch = z.strictObject({
+  name: text().min(1).max(120).optional(), description: text().max(5000).optional(),
+  color: color.optional(), archived: z.boolean().optional(),
+});
 const snapshot = z.record(z.string(), z.unknown());
 const workspaceFields = { title: text().min(1).max(200), snapshot };
 export const workspaceInput = z.strictObject(workspaceFields);
@@ -46,7 +53,7 @@ const timestamp = text().min(1).max(60).refine(value => !Number.isNaN(Date.parse
 const timestampFields = { created_at: timestamp, updated_at: timestamp };
 export const backupInput = z.strictObject({
   schema_version: z.literal(1), exported_at: timestamp,
-  accounts: z.array(z.strictObject({ id: identifier, name: text().min(1).max(120), description: text().max(5000), color })).max(1000),
+  accounts: z.array(z.strictObject({ id: identifier, name: text().min(1).max(120), description: text().max(5000), color, archived: z.boolean().default(false) })).max(1000),
   categories: z.array(z.strictObject({ id: identifier, name: text().min(1).max(120), color })).max(10000),
   tags: z.array(z.strictObject({ id: identifier, name: text().min(1).max(120), color, archived: z.boolean() })).max(10000),
   transactions: z.array(z.strictObject({ ...transactionFields, ...timestampFields, id: identifier, version })).max(100000),

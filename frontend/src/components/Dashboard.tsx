@@ -6,7 +6,7 @@ import type { Dashboard as DashboardData, Transaction } from '../types'
 import { money, monthLabel, monthRange, won } from '../utils'
 import { Empty, Loading, Modal, TransactionList } from './Shared'
 
-export function Dashboard({data,month,onAdd,demo=false}: {data:DashboardData;month:string;onAdd:()=>void;demo?:boolean}) {
+export function Dashboard({data,month,onAdd,onManageAccounts,demo=false}: {data:DashboardData;month:string;onAdd:()=>void;onManageAccounts:()=>void;demo?:boolean}) {
   const [evidence,setEvidence]=useState<{title:string;categoryId:string}|null>(null)
   const [evidenceItems,setEvidenceItems]=useState<Transaction[]>([])
   const [evidenceBusy,setEvidenceBusy]=useState(false)
@@ -39,7 +39,7 @@ export function Dashboard({data,month,onAdd,demo=false}: {data:DashboardData;mon
       <section className="panel category-panel"><div className="section-heading"><h2>종목별 지출</h2></div>
         {categories.length>0?<div className="category-bars">{categories.map((item,index)=><button type="button" className="category-line chart-click-target" key={item.id} onClick={()=>void showCategory(item.id,item.name)} aria-label={`${item.name} 지출에 포함된 거래 보기`} style={{display:'block',width:'100%',textAlign:'left',border:0,padding:0,background:'transparent',cursor:'pointer'}}><div className="category-label"><span><span className="color-dot" style={{background:item.color}}/>{item.name}</span><strong>{money(item.total)}<small>{data.total_expense?Math.round(item.total/data.total_expense*100):0}%</small></strong></div><div className="category-track"><span style={{width:`${item.total/maximum*100}%`,background:item.color,animationDelay:`${index*80}ms`}}/></div></button>)}</div>:<p className="dashboard-empty-compact">이 기간의 지출이 없습니다.</p>}
       </section>
-      <section className="panel accounts-panel"><div className="section-heading"><h2>금융수단별 지출</h2></div><div className="accounts-list">{data.by_account.map(account=><div className="account-item" key={account.id}><strong className="account-name">{account.name}</strong><strong className="account-sum">{money(account.total)}</strong></div>)}</div></section>
+      <section className="panel accounts-panel"><div className="section-heading"><h2>금융수단별 지출</h2><button className="text-button" onClick={onManageAccounts} aria-label="금융수단 관리">관리 <ArrowUpRight size={14}/></button></div>{data.by_account.length?<div className="accounts-list">{data.by_account.map(account=><div className="account-item" key={account.id}><span className="color-dot" style={{background:account.color}} aria-hidden="true"/><div className="account-summary-details"><strong className="account-name">{account.name}{account.archived&&<span className="muted small"> · 보관됨</span>}</strong>{account.description&&<p>{account.description}</p>}</div><strong className="account-sum">{money(account.total)}</strong></div>)}</div>:<p className="dashboard-empty-compact">등록한 금융수단이 없습니다. 관리에서 추가해 주세요.</p>}</section>
     </div>
     {evidence&&<Modal title={evidence.title} subtitle={`${monthRange(month).start} — ${monthRange(month).end} · 거래일 기준 · 지출`} onClose={()=>setEvidence(null)}>{evidenceError&&<p className="inline-note">{evidenceError}</p>}{evidenceBusy?<Loading/>:evidenceItems.length?<TransactionList items={evidenceItems}/>:<Empty title="포함된 거래가 없어요" text="선택한 종목과 기간에 맞는 기록을 확인해 주세요."/>}</Modal>}
   </>

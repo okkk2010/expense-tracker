@@ -64,7 +64,7 @@ export async function createApp(options = {}) {
   }
   function context() {
     return {
-      accounts: db.prepare('SELECT * FROM accounts ORDER BY rowid').all(),
+      accounts: db.prepare('SELECT * FROM accounts ORDER BY rowid').all().map(services.account),
       categories: db.prepare('SELECT * FROM categories ORDER BY rowid').all(),
       tags: db.prepare('SELECT * FROM tags ORDER BY archived,name,id').all()
         .map(tag => ({ ...tag, archived: Boolean(tag.archived) })),
@@ -76,6 +76,35 @@ export async function createApp(options = {}) {
 
   app.get('/api/health', () => ({ status: 'ok', version: '0.1.0', auth_required: Boolean(settings.accessToken) }));
   app.get('/api/bootstrap', () => context());
+  app.post('/api/accounts', (request, reply) => {
+    const payload = models.parse(models.accountInput, request.body);
+    const id = services.new_id();
+    db.prepare('INSERT INTO accounts(id,name,description,color,archived) VALUES (?,?,?,?,0)')
+      .run(id, payload.name, payload.description, payload.color);
+    return reply.code(201).send(services.account(db.prepare('SELECT * FROM accounts WHERE id=?').get(id)));
+  });
+  app.patch('/api/accounts/:id', request => {
+    const changes = models.parse(models.accountPatch, request.body);
+    return atomic(() => {
+      services.account(db.prepare('SELECT * FROM accounts WHERE id=?').get(request.params.id));
+      const entries = Object.entries(changes).map(([key, value]) => [key, key === 'archived' ? Number(value) : value]);
+      if (entries.length) {
+        const fields = entries.map(([key]) => `${key}=?`).join(',');
+        db.prepare(`UPDATE accounts SET ${fields} WHERE id=?`).run(...entries.map(([, value]) => value), request.params.id);
+      }
+      return services.account(db.prepare('SELECT * FROM accounts WHERE id=?').get(request.params.id));
+    });
+  });
+  app.delete('/api/accounts/:id', (request, reply) => {
+    atomic(() => {
+      services.account(db.prepare('SELECT * FROM accounts WHERE id=?').get(request.params.id));
+      if (db.prepare('SELECT 1 FROM transactions WHERE account_id=? LIMIT 1').get(request.params.id)) {
+        throw httpError(409, '거래에 사용된 금융수단은 삭제할 수 없습니다. 기록을 유지하려면 금융수단을 보관해 주세요.');
+      }
+      db.prepare('DELETE FROM accounts WHERE id=?').run(request.params.id);
+    });
+    return reply.code(204).send();
+  });
   app.get('/api/transactions', request => {
     const { limit, tag_ids, ...filters } = models.parse(models.transactionQuery, request.query);
     filters.tag_ids = tag_ids.split(',').map(value => value.trim()).filter(Boolean);
@@ -96,7 +125,7 @@ export async function createApp(options = {}) {
       const base = Object.fromEntries(['date', 'amount', 'kind', 'account_id', 'category_id', 'tag_ids', 'note'].map(key => [key, current[key]]));
       const { version: _version, ...editable } = submitted;
       const item = models.parse(models.transactionInput, { ...base, ...editable });
-      services.check_references(db, item);
+      services.check_references(db, item, { requireActiveAccount: true, existingAccountId: current.account_id });
       db.prepare('UPDATE transactions SET date=?,amount=?,kind=?,account_id=?,category_id=?,note=?,version=version+1,updated_at=? WHERE id=?')
         .run(item.date, item.amount, item.kind, item.account_id, item.category_id, item.note, services.now(), request.params.id);
       services.set_transaction_tags(db, request.params.id, item.tag_ids);

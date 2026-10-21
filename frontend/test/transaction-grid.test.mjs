@@ -14,15 +14,17 @@ const bootstrap = {
 }
 const row = (changes = {}) => ({ ...createGridRow(bootstrap, '2026-10-22'), amount: '1000', ...changes })
 
-test('blank rows keep the agreed defaults without creating transactions, including empty catalogs', () => {
+test('blank rows choose the first active account by ID without creating transactions, including empty catalogs', () => {
   assert.deepEqual(GRID_COLUMNS, ['date', 'kind', 'account', 'category', 'note', 'tags', 'amount'])
   const empty = createGridRow(bootstrap, '2026-10-22')
-  assert.equal(empty.account, '국민카드')
+  assert.equal(empty.account, 'bank')
   assert.equal(empty.category, '식사')
   assert.equal(empty.kind, '지출')
   assert.equal(isGridRowEmpty(empty), true)
   assert.deepEqual(validateGridRows([empty], bootstrap), { items: [], errors: {} })
-  assert.equal(createGridRow({ ...bootstrap, accounts: [bootstrap.accounts[0]] }, empty.date).account, '기업은행')
+  assert.equal(createGridRow({ ...bootstrap, accounts: [bootstrap.accounts[0]] }, empty.date).account, 'bank')
+  assert.equal(createGridRow({ ...bootstrap, accounts: [{ ...bootstrap.accounts[0], archived: true }, bootstrap.accounts[1]] }, empty.date).account, 'card')
+  assert.equal(createGridRow({ ...bootstrap, accounts: bootstrap.accounts.map(account => ({ ...account, archived: true })) }, empty.date).account, '')
   assert.equal(createGridRow({ ...bootstrap, accounts: [], categories: [] }, empty.date).account, '')
   assert.equal(isGridRowEmpty({ ...empty, amount: '0' }), false)
   assert.equal(isGridRowEmpty({ ...empty, note: '메모만 입력' }), false)
@@ -45,7 +47,7 @@ test('pasting from a selected cell expands rows and preserves unaffected cells a
   const result = applyGridPaste(initial, 0, 4, [['새 메모', '#데이트', '2,000'], ['다음 거래', '', '0']], bootstrap, '2026-10-23')
   assert.deepEqual(initial, before)
   assert.equal(result[0].id, initial[0].id)
-  assert.equal(result[0].account, '국민카드')
+  assert.equal(result[0].account, 'bank')
   assert.equal(result[0].amount, '2,000')
   assert.equal(result[1].date, '2026-10-23')
   assert.notEqual(result[1].id, result[0].id)
@@ -109,6 +111,23 @@ test('archived tags can only be preserved on the particular existing record that
   assert.ok(validateGridRows([added], bootstrap, options).errors[added.id].tags)
 })
 
+test('custom accounts support names and IDs while archived accounts are retained only on their original row', () => {
+  const catalog = { ...bootstrap, accounts: [
+    { id: 'old-card', name: '지난 카드', archived: true },
+    { id: 'custom-wallet', name: '생활 통장', archived: false },
+  ] }
+  const original = row({ id: 'existing', account: 'old-card' })
+  const copied = row({ account: '지난 카드' })
+  assert.ok(validateGridRows([original], catalog).errors.existing.account)
+  const options = { existingAccountIds: { existing: 'old-card' } }
+  assert.equal(validateGridRows([original], catalog, options).items[0].account_id, 'old-card')
+  assert.ok(validateGridRows([copied], catalog, options).errors[copied.id].account)
+  for (const account of ['생활 통장', 'custom-wallet']) {
+    assert.equal(validateGridRows([row({ account })], catalog).items[0].account_id, 'custom-wallet')
+  }
+  assert.ok(validateGridRows([row({ id: 'toString', account: 'old-card' })], catalog, { existingAccountIds: {} }).errors.toString.account)
+})
+
 test('comma/hash tag names cannot replace separate selected tags when saving an existing row', () => {
   const catalog = { ...bootstrap, tags: [
     { id: 'a', name: 'A', archived: false }, { id: 'b', name: 'B', archived: false },
@@ -135,7 +154,7 @@ test('delimiter-containing restored tag IDs fail explicitly instead of becoming 
 
 test('ambiguous names require IDs and excessive batch size or note length cannot produce a valid payload', () => {
   const catalog = { ...bootstrap, accounts: [...bootstrap.accounts, { id: 'other-card', name: '국민카드' }] }
-  const ambiguous = row()
+  const ambiguous = row({ account: '국민카드' })
   assert.ok(validateGridRows([ambiguous], catalog).errors[ambiguous.id].account)
   assert.equal(validateGridRows([{ ...ambiguous, account: 'card' }], catalog).items[0].account_id, 'card')
   const tooMany = Array.from({ length: 501 }, () => row())

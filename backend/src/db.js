@@ -2,9 +2,9 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-// Preserve the original file schema, column order and migration marker.
+// Account archival extends the original schema without replacing any records.
 export const SCHEMA = `
-CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, color TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, color TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS tags (id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS transactions (
@@ -46,14 +46,18 @@ export function createDatabase(path) {
     db.exec(SCHEMA);
     db.exec('BEGIN IMMEDIATE');
     try {
+      const schemaVersion = db.prepare('PRAGMA user_version').get().user_version;
+      if (!db.prepare('PRAGMA table_info(accounts)').all().some(column => column.name === 'archived')) {
+        db.exec('ALTER TABLE accounts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
+      }
       // Restored empty collections and explicitly deleted records remain empty.
-      if (db.prepare('PRAGMA user_version').get().user_version === 0) {
-        const account = db.prepare('INSERT OR IGNORE INTO accounts VALUES (?,?,?,?)');
-        const category = db.prepare('INSERT OR IGNORE INTO categories VALUES (?,?,?)');
+      if (schemaVersion === 0) {
+        const account = db.prepare('INSERT OR IGNORE INTO accounts(id,name,description,color) VALUES (?,?,?,?)');
+        const category = db.prepare('INSERT OR IGNORE INTO categories(id,name,color) VALUES (?,?,?)');
         for (const row of ACCOUNTS) account.run(...row);
         for (const row of CATEGORIES) category.run(...row);
-        db.exec('PRAGMA user_version=1');
       }
+      if (schemaVersion < 2) db.exec('PRAGMA user_version=2');
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }
     return db;

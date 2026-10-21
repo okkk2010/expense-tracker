@@ -134,6 +134,42 @@ test('named accounts and tags are resolved to catalog IDs', async () => {
   assert.equal(result.cards[0].data[0].value, 150);
 });
 
+test('resolved account and category IDs keep saved analysis scoped after names change', async () => {
+  const original = await run({ prompt: '이번 달 국민카드 식사 지출 합계' });
+  assert.equal(original.result.status, 'complete');
+  assert.equal(original.result.resolved_filters.account_id, 'a1');
+  assert.equal(original.result.resolved_filters.category_id, 'c1');
+  assert.equal(original.result.cards[0].data[0].value, 100);
+  const renamed = context();
+  renamed.accounts[0].name = '이름을 바꾼 금융수단';
+  renamed.categories[0].name = '이름을 바꾼 종목';
+  const snapshot = JSON.parse(JSON.stringify({ filters: original.result.resolved_filters, cards: original.result.cards }));
+  const repeated = await run({ prompt: '이번 달 국민카드 식사 지출 합계', reference: snapshot }, rows(), renamed);
+  assert.equal(repeated.result.status, 'complete');
+  assert.equal(repeated.calls[0].account_id, 'a1');
+  assert.equal(repeated.calls[0].category_id, 'c1');
+  assert.equal(repeated.result.cards[0].data[0].value, 100);
+  assert.deepEqual(repeated.result.resolved_filters, original.result.resolved_filters);
+});
+
+test('an explicit other account and category override saved resolved filter IDs', async () => {
+  const previous = await run({ prompt: '이번 달 국민카드 식사 지출 합계' });
+  const changed = await run({ prompt: '이번 달 토스 카드 취미 지출 합계', filters: previous.result.resolved_filters });
+  assert.equal(changed.result.status, 'complete');
+  assert.equal(changed.calls[0].account_id, 'a2');
+  assert.equal(changed.calls[0].category_id, 'c3');
+  assert.equal(changed.result.cards[0].data[0].value, 70);
+});
+
+test('a deleted resolved account clarifies instead of broadening a saved analysis', async () => {
+  const original = await run({ prompt: '이번 달 국민카드 지출 합계' });
+  const remaining = context();
+  remaining.accounts = remaining.accounts.filter(account => account.id !== 'a1');
+  const repeated = await run({ prompt: '이번 달 국민카드 지출 합계', reference: { filters: original.result.resolved_filters } }, rows(), remaining);
+  assert.equal(repeated.result.status, 'clarification');
+  assert.deepEqual(repeated.calls, []);
+});
+
 test('daily series uses actual transaction dates in chronological order', async () => {
   const { result } = await run({ prompt: '이번 달 날짜별 추이' });
   assert.deepEqual(result.cards[0].data, [

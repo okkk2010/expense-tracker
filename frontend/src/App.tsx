@@ -11,7 +11,7 @@ import { Workspace } from './components/Workspace'
 import { Settings } from './components/Settings'
 
 const emptyBootstrap:Bootstrap={accounts:[],categories:[],tags:[],settings:{}}
-function emptyDashboard(month:string,bootstrap:Bootstrap):DashboardData{return {month,total_expense:0,transaction_count:0,previous_expense:0,by_category:bootstrap.categories.map(item=>({...item,total:0})),by_account:bootstrap.accounts.map(item=>({...item,total:0})),daily:[],budgets:[],recent_transactions:[],metadata:{...monthRange(month),date_basis:'transaction_date',tag_mode:'or'}}}
+function emptyDashboard(month:string,bootstrap:Bootstrap):DashboardData{return {month,total_expense:0,transaction_count:0,previous_expense:0,by_category:bootstrap.categories.map(item=>({...item,total:0})),by_account:bootstrap.accounts.filter(item=>!item.archived).map(item=>({...item,total:0})),daily:[],budgets:[],recent_transactions:[],metadata:{...monthRange(month),date_basis:'transaction_date',tag_mode:'or'}}}
 const navigation=[{id:'overview',title:'한눈에 보기',icon:LayoutDashboard},{id:'transactions',title:'거래 기록',icon:BookOpen},{id:'budgets',title:'태그 예산',icon:Target},{id:'workspace',title:'AI 작업 공간',icon:Sparkles}] as const
 export default function App(){
   const [page,setPage]=useState<Page>('overview')
@@ -62,7 +62,8 @@ export default function App(){
   },[month,refreshKey,demo,workspaceSession])
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),toast.error?8500:4500);return()=>clearTimeout(timer)},[toast])
   const changePage=(next:Page)=>{setPage(next);window.scrollTo({top:0,behavior:'smooth'})}
-  const openEntry=(initial:Transaction|null=null)=>{if(demo){notify('지금은 예시 데이터를 둘러보고 있어요. 서버에 연결하면 실제 거래를 기록할 수 있어요.');return}if(!connected){setPage('settings');notify('먼저 내 서버를 연결해 주세요.');return}setEditing(initial)}
+  const manageAccounts=()=>{setPage('settings');requestAnimationFrame(()=>document.getElementById('account-manager')?.scrollIntoView({behavior:'smooth',block:'start'}))}
+  const openEntry=(initial:Transaction|null=null)=>{if(demo){notify('지금은 예시 데이터를 둘러보고 있어요. 서버에 연결하면 실제 거래를 기록할 수 있어요.');return}if(!connected){setPage('settings');notify('먼저 내 서버를 연결해 주세요.');return}if(!initial&&!bootstrap.accounts.some(account=>!account.archived)){manageAccounts();notify('사용할 금융수단을 먼저 추가하거나 보관 해제해 주세요.');return}setEditing(initial)}
   const props={bootstrap,month,demo,refreshKey:refreshKey+syncKey,onRefresh:refresh,notify}
   return <div className={`app-shell ${sidebarSmall?'sidebar-small':''}`}><a href="#main-content" className="skip-link">본문으로 바로 가기</a>
     <aside className="sidebar">
@@ -76,7 +77,7 @@ export default function App(){
     <div className="main-shell"><header className="topbar"><div className="breadcrumbs"><span>나의 가계부</span><span>/</span><strong>{page==='settings'?'설정':navigation.find(item=>item.id===page)?.title}</strong></div><div className="topbar-actions"><div className="month-control"><button className="icon-button" aria-label="이전 달" onClick={()=>setMonth(shiftMonth(month,-1))}><ChevronLeft size={17}/></button><label><CalendarDays size={15}/><span>{monthLabel(month)}</span><input type="month" aria-label="조회 월 선택" value={month} onChange={event=>{if(/^\d{4}-\d{2}$/.test(event.target.value))setMonth(event.target.value)}}/></label><button className="icon-button" aria-label="다음 달" onClick={()=>setMonth(shiftMonth(month,1))}><ChevronRight size={17}/></button></div><span className="topbar-divider"/><button className={`connection-status ${connected&&!demo?'connected':''} ${demo?'demo-status':''}`} onClick={()=>changePage('settings')}><span/>{demo?'둘러보기':loading?'확인 중':connected?'서버 연결됨':'연결 필요'}</button></div></header>
       <main id="main-content" className={`main-content ${page==='workspace'?'workspace-page':''}`}>
         {demo?<div className="demo-banner"><span><FlaskConical size={16}/><strong>둘러보기</strong> 예시 데이터예요. 실제 기록과 분리되어 있어요.</span><button onClick={()=>{setDemo(false);refresh()}}>내 기록으로 돌아가기 <ArrowRight size={14}/></button></div>:connectionError?<div className="connection-banner"><span><WifiOff size={17}/><span><strong>내 서버를 연결해 주세요</strong><small>{connectionError}</small></span></span><div className="button-row"><button onClick={()=>changePage('settings')}>연결 설정 <ArrowUpRight size={14}/></button><button onClick={()=>setDemo(true)}>화면 둘러보기</button></div></div>:null}
-        {page==='overview'&&<Dashboard data={data} month={month} onAdd={()=>openEntry()} demo={demo}/>}
+        {page==='overview'&&<Dashboard data={data} month={month} onAdd={()=>openEntry()} onManageAccounts={manageAccounts} demo={demo}/>}
         {page==='transactions'&&<Transactions {...props} onAdd={()=>openEntry()} onEdit={item=>openEntry(item)}/>}
         {page==='budgets'&&<Budgets {...props}/>}
         <div hidden={page!=='workspace'}><Workspace key={`${demo?'demo':'real'}-${workspaceSession}`} {...props}/></div>

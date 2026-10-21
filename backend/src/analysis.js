@@ -357,7 +357,7 @@ export async function analyzeRequest(payload, queryTransactions, context) {
     let message = '선택한 기간과 조건에 맞는 실제 거래를 계산했습니다.';
     if (provider === 'rules') message = fallback ? 'AI 연결을 사용할 수 없어 규칙 기반으로 실제 거래를 계산했습니다.' : '규칙 기반으로 실제 거래를 계산했습니다.';
     if (!rows.length) message += ' 해당 조건의 지출 거래가 없습니다.';
-    return { status: 'complete', message, cards, provider };
+    return { status: 'complete', message, cards, provider, resolved_filters: filters };
   } catch (error) {
     return clarification(error instanceof Clarify ? error.message : '거래 데이터를 조회하거나 계산하지 못했습니다. 조회 조건과 서버 연결을 확인한 뒤 다시 요청해 주세요.', provider);
   }

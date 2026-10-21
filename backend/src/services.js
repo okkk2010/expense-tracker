@@ -31,9 +31,14 @@ function valid_date(day) {
   if (day < start || day > end) fail(422, '유효하지 않은 날짜입니다.');
 }
 
-export function check_references(db, payload) {
+export function check_references(db, payload, { requireActiveAccount = false, existingAccountId } = {}) {
   for (const [key, table] of [['account_id', 'accounts'], ['category_id', 'categories']]) {
-    if (payload[key] != null && !db.prepare(`SELECT id FROM ${table} WHERE id=?`).get(payload[key])) fail(422, `존재하지 않는 ${key}: ${payload[key]}`);
+    if (payload[key] == null) continue;
+    const row = db.prepare(`SELECT * FROM ${table} WHERE id=?`).get(payload[key]);
+    if (!row) fail(422, `존재하지 않는 ${key}: ${payload[key]}`);
+    if (key === 'account_id' && requireActiveAccount && row.archived && row.id !== existingAccountId) {
+      fail(422, '보관된 금융수단에는 새 거래를 기록할 수 없습니다. 다른 금융수단을 선택하거나 보관을 해제해 주세요.');
+    }
   }
   for (const id of payload.tag_ids ?? []) {
     if (!db.prepare('SELECT id FROM tags WHERE id=?').get(id)) fail(422, `존재하지 않는 tag_id: ${id}`);
@@ -110,7 +115,7 @@ export function query_transactions(db, filters = {}, options = {}) {
 }
 
 export function insert_transaction(db, item) {
-  check_references(db, item); valid_date(item.date); safe_money(item.amount);
+  check_references(db, item, { requireActiveAccount: true }); valid_date(item.date); safe_money(item.amount);
   const id = new_id(), timestamp = now();
   db.prepare(`INSERT INTO transactions(id,date,amount,kind,account_id,category_id,note,version,created_at,updated_at)
     VALUES (?,?,?,?,?,?,?,1,?,?)`).run(id, item.date, item.amount, item.kind, item.account_id, item.category_id, item.note ?? '', timestamp, timestamp);
@@ -156,8 +161,9 @@ export function dashboard(db, month) {
   }
   const by_category = db.prepare('SELECT * FROM categories').all().map(({ id, name, color }) => ({ id, name, color,
     total: safe_sum(current.filter(item => item.category_id === id).map(item => item.amount)) }));
-  const by_account = db.prepare('SELECT * FROM accounts').all().map(({ id, name, color }) => ({ id, name, color,
-    total: safe_sum(current.filter(item => item.account_id === id).map(item => item.amount)) }));
+  const by_account = db.prepare('SELECT * FROM accounts').all().map(({ id, name, description, color, archived }) => ({ id, name, description, color, archived: Boolean(archived),
+    total: safe_sum(current.filter(item => item.account_id === id).map(item => item.amount)) }))
+    .filter(item => !item.archived || item.total > 0);
   const daily = Array.from({ length: Number(end.slice(-2)) }, (_, index) => {
     const day = `${month}-${String(index + 1).padStart(2, '0')}`;
     return { date: day, total: safe_sum(current.filter(item => item.date === day).map(item => item.amount)) };
@@ -165,6 +171,11 @@ export function dashboard(db, month) {
   return { month, total_expense: safe_sum(current.map(item => item.amount)), transaction_count: current.length,
     previous_expense, by_category, by_account, daily, budgets: get_budgets(db, month), recent_transactions: current.slice(0, 10),
     metadata: { start, end, date_basis: 'transaction_date', tag_mode: 'or' } };
+}
+
+export function account(row) {
+  if (!row) fail(404, '금융수단을 찾을 수 없습니다.');
+  return { ...row, archived: Boolean(row.archived) };
 }
 
 export function workspace(row) {
@@ -195,7 +206,7 @@ export function serialize_snapshot(snapshot) {
 export function export_backup(db) {
   const transactions = db.prepare('SELECT * FROM transactions ORDER BY id').all().map(row => ({ ...row, amount: safe_money(row.amount),
     tag_ids: db.prepare('SELECT tag_id FROM transaction_tags WHERE transaction_id=? ORDER BY tag_id').all(row.id).map(tag => tag.tag_id) }));
-  return { schema_version: 1, exported_at: now(), accounts: db.prepare('SELECT * FROM accounts ORDER BY id').all(),
+  return { schema_version: 1, exported_at: now(), accounts: db.prepare('SELECT * FROM accounts ORDER BY id').all().map(account),
     categories: db.prepare('SELECT * FROM categories ORDER BY id').all(),
     tags: db.prepare('SELECT * FROM tags ORDER BY id').all().map(row => ({ ...row, archived: Boolean(row.archived) })), transactions,
     budgets: db.prepare('SELECT * FROM budgets ORDER BY tag_id,month').all().map(row => ({ ...row, amount: safe_money(row.amount) })),
@@ -232,11 +243,11 @@ export function validate_backup(data) {
 export function restore_backup(db, data) {
   validate_backup(data);
   for (const table of ['transaction_tags', 'transactions', 'budgets', 'workspaces', 'tags', 'categories', 'accounts']) db.exec(`DELETE FROM ${table}`);
-  const account = db.prepare('INSERT INTO accounts VALUES (?,?,?,?)');
-  for (const item of data.accounts) account.run(item.id, item.name, item.description, item.color);
-  const category = db.prepare('INSERT INTO categories VALUES (?,?,?)');
+  const account = db.prepare('INSERT INTO accounts(id,name,description,color,archived) VALUES (?,?,?,?,?)');
+  for (const item of data.accounts) account.run(item.id, item.name, item.description, item.color, Number(item.archived ?? false));
+  const category = db.prepare('INSERT INTO categories(id,name,color) VALUES (?,?,?)');
   for (const item of data.categories) category.run(item.id, item.name, item.color);
-  const tag = db.prepare('INSERT INTO tags VALUES (?,?,?,?)');
+  const tag = db.prepare('INSERT INTO tags(id,name,color,archived) VALUES (?,?,?,?)');
   for (const item of data.tags) tag.run(item.id, item.name, item.color, Number(item.archived));
   const transaction = db.prepare(`INSERT INTO transactions(id,date,amount,kind,account_id,category_id,note,version,created_at,updated_at)
     VALUES (?,?,?,?,?,?,?,?,?,?)`);
