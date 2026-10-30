@@ -24,7 +24,30 @@ CREATE TABLE IF NOT EXISTS budgets (
 );
 CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, snapshot TEXT NOT NULL, version INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-);`;
+);
+CREATE TABLE IF NOT EXISTS shortcut_connections (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, source TEXT NOT NULL CHECK(source IN ('toss','kb')),
+  account_id TEXT REFERENCES accounts(id), match_text TEXT NOT NULL DEFAULT '',
+  category_id TEXT REFERENCES categories(id), tag_ids TEXT NOT NULL DEFAULT '[]',
+  auto_record INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1,
+  token_hash TEXT UNIQUE, last_received_at TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS shortcut_events (
+  id TEXT PRIMARY KEY, connection_id TEXT NOT NULL, connection_name TEXT NOT NULL,
+  source TEXT NOT NULL CHECK(source IN ('toss','kb')), title TEXT NOT NULL DEFAULT '',
+  subtitle TEXT NOT NULL DEFAULT '', body TEXT NOT NULL, source_app TEXT NOT NULL DEFAULT '',
+  occurred_at TEXT, transaction_time TEXT, received_at TEXT NOT NULL,
+  external_event_id TEXT, fingerprint TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending','recorded','ignored','duplicate')),
+  reason TEXT NOT NULL, parsed TEXT NOT NULL,
+  transaction_id TEXT REFERENCES transactions(id) ON DELETE SET NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shortcut_event_external
+  ON shortcut_events(connection_id,external_event_id) WHERE external_event_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shortcut_event_fingerprint
+  ON shortcut_events(connection_id,fingerprint);
+CREATE INDEX IF NOT EXISTS idx_shortcut_events_received ON shortcut_events(received_at);
+`;
 
 export const ACCOUNTS = [
   ['account-ibk', '기업은행', '월급 받는 통장', '#2563eb'],

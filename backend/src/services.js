@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 function fail(statusCode, detail) {
   throw Object.assign(new Error(typeof detail === 'string' ? detail : detail.message), { statusCode, detail });
@@ -210,7 +210,21 @@ export function export_backup(db) {
     categories: db.prepare('SELECT * FROM categories ORDER BY id').all(),
     tags: db.prepare('SELECT * FROM tags ORDER BY id').all().map(row => ({ ...row, archived: Boolean(row.archived) })), transactions,
     budgets: db.prepare('SELECT * FROM budgets ORDER BY tag_id,month').all().map(row => ({ ...row, amount: safe_money(row.amount) })),
-    workspaces: db.prepare('SELECT * FROM workspaces ORDER BY id').all().map(workspace), settings: {} };
+    workspaces: db.prepare('SELECT * FROM workspaces ORDER BY id').all().map(workspace),
+    shortcuts_connections: db.prepare(`SELECT id,name,source,account_id,match_text,category_id,tag_ids,auto_record,enabled,last_received_at,created_at
+      FROM shortcut_connections ORDER BY id`).all().map(row => ({ ...row, tag_ids: JSON.parse(row.tag_ids),
+      auto_record: Boolean(row.auto_record), enabled: Boolean(row.enabled) })),
+    shortcuts_events: db.prepare(`SELECT id,connection_id,connection_name,source,title,subtitle,body,source_app,occurred_at,
+      transaction_time,received_at,external_event_id,status,reason,parsed,transaction_id FROM shortcut_events ORDER BY id`).all()
+      .map(row => ({ ...row, parsed: JSON.parse(row.parsed) })), settings: {} };
+}
+
+function shortcut_fingerprint(item) {
+  if (item.external_event_id) return createHash('sha256').update(`event:${item.external_event_id}`).digest('hex');
+  if (!item.occurred_at) return `restored:${item.id}`;
+  const contents = JSON.stringify([item.title, item.subtitle, item.body, item.source_app]
+    .map(value => String(value ?? '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase()));
+  return createHash('sha256').update(`notification:${contents}:${new Date(item.occurred_at).toISOString()}`).digest('hex');
 }
 
 // The route performs structural/schema validation; these checks validate every
@@ -236,13 +250,35 @@ export function validate_backup(data) {
     if (!sets.get('tags').has(budget.tag_id)) fail(422, '백업 예산에 잘못된 태그 참조가 있습니다.');
   }
   for (const item of data.workspaces) serialize_snapshot(item.snapshot);
+  const connections = data.shortcuts_connections ?? [], events = data.shortcuts_events ?? [];
+  for (const [name, collection] of [['shortcuts_connections', connections], ['shortcuts_events', events]]) {
+    if (new Set(collection.map(item => item.id)).size !== collection.length) fail(422, `백업의 ${name}에 중복 ID가 있습니다.`);
+  }
+  for (const item of connections) {
+    if (item.account_id && !sets.get('accounts').has(item.account_id)) fail(422, '단축어 연결에 잘못된 금융수단 참조가 있습니다.');
+    if (item.category_id && !sets.get('categories').has(item.category_id)) fail(422, '단축어 연결에 잘못된 종목 참조가 있습니다.');
+    if (item.tag_ids.some(id => !sets.get('tags').has(id))) fail(422, '단축어 연결에 잘못된 태그 참조가 있습니다.');
+  }
+  const externalIds = new Set(), fingerprints = new Set();
+  for (const item of events) {
+    if (item.transaction_id && !sets.get('transactions').has(item.transaction_id)) fail(422, '수집 알림에 잘못된 거래 참조가 있습니다.');
+    if (item.status !== 'recorded' && item.transaction_id) fail(422, '저장하지 않은 수집 알림에 거래가 연결되어 있습니다.');
+    if (item.external_event_id) {
+      const key = JSON.stringify([item.connection_id, item.external_event_id]);
+      if (externalIds.has(key)) fail(422, '수집 알림에 중복 원본 이벤트 ID가 있습니다.');
+      externalIds.add(key);
+    }
+    const fingerprint = JSON.stringify([item.connection_id, shortcut_fingerprint(item)]);
+    if (fingerprints.has(fingerprint)) fail(422, '수집 알림에 중복 전송 내용과 시각이 있습니다.');
+    fingerprints.add(fingerprint);
+  }
   if (Object.keys(data.settings ?? {}).length) fail(422, '이 버전은 비어 있는 settings만 복원할 수 있습니다.');
 }
 
 // The caller owns BEGIN IMMEDIATE / COMMIT / ROLLBACK, just as for batch writes.
 export function restore_backup(db, data) {
   validate_backup(data);
-  for (const table of ['transaction_tags', 'transactions', 'budgets', 'workspaces', 'tags', 'categories', 'accounts']) db.exec(`DELETE FROM ${table}`);
+  for (const table of ['shortcut_events', 'shortcut_connections', 'transaction_tags', 'transactions', 'budgets', 'workspaces', 'tags', 'categories', 'accounts']) db.exec(`DELETE FROM ${table}`);
   const account = db.prepare('INSERT INTO accounts(id,name,description,color,archived) VALUES (?,?,?,?,?)');
   for (const item of data.accounts) account.run(item.id, item.name, item.description, item.color, Number(item.archived ?? false));
   const category = db.prepare('INSERT INTO categories(id,name,color) VALUES (?,?,?)');
@@ -259,4 +295,21 @@ export function restore_backup(db, data) {
   for (const item of data.budgets) budget.run(item.tag_id, item.month, item.amount);
   const savedWorkspace = db.prepare('INSERT INTO workspaces VALUES (?,?,?,?,?,?)');
   for (const item of data.workspaces) savedWorkspace.run(item.id, item.title, serialize_snapshot(item.snapshot), item.version, item.created_at, item.updated_at);
+  const shortcutConnection = db.prepare(`INSERT INTO shortcut_connections
+    (id,name,source,account_id,match_text,category_id,tag_ids,auto_record,enabled,token_hash,last_received_at,created_at)
+    VALUES (?,?,?,?,?,?,?,0,0,NULL,?,?)`);
+  for (const item of data.shortcuts_connections ?? []) {
+    // A backup is never a reusable ingestion credential. Every restored connection
+    // needs a fresh token and an explicit decision to enable automatic recording.
+    shortcutConnection.run(item.id, item.name, item.source, item.account_id, item.match_text,
+      item.category_id, JSON.stringify(item.tag_ids), item.last_received_at, item.created_at);
+  }
+  const shortcutEvent = db.prepare(`INSERT INTO shortcut_events
+    (id,connection_id,connection_name,source,title,subtitle,body,source_app,occurred_at,transaction_time,received_at,external_event_id,fingerprint,status,reason,parsed,transaction_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  for (const item of data.shortcuts_events ?? []) {
+    shortcutEvent.run(item.id, item.connection_id, item.connection_name, item.source, item.title, item.subtitle, item.body,
+      item.source_app, item.occurred_at, item.transaction_time ?? null, item.received_at, item.external_event_id ?? null,
+      shortcut_fingerprint(item), item.status, item.reason, JSON.stringify(item.parsed), item.transaction_id);
+  }
 }

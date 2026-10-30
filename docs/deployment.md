@@ -3,7 +3,7 @@
 현재 구성은 기존 서버 `115.68.223.74`의 `8000` 포트에 가계부 백엔드를 실행하고, Vercel이 API 요청을 전달합니다. API 도메인은 필요하지 않습니다.
 
 ```text
-브라우저 → https://your-frontend.vercel.app/api/…
+브라우저 → https://expense-tracker-lake-eight-39.vercel.app/api/…
          → Vercel 프록시 → http://115.68.223.74:8000/api/…
 ```
 
@@ -44,7 +44,7 @@ openssl rand -hex 32
 ```dotenv
 BACKEND_BIND_ADDRESS=0.0.0.0
 BACKEND_PORT=8000
-FRONTEND_ORIGIN=https://your-frontend.vercel.app
+FRONTEND_ORIGIN=https://expense-tracker-lake-eight-39.vercel.app
 APP_ACCESS_TOKEN=replace-with-the-generated-random-key
 LLM_BASE_URL=
 LLM_API_KEY=
@@ -80,9 +80,9 @@ curl http://127.0.0.1:8000/api/health
 ## 3. 연결 확인
 
 1. 다른 네트워크에서 `http://115.68.223.74:8000/api/health`가 JSON을 반환하는지 확인합니다.
-2. `https://your-frontend.vercel.app/api/health`도 같은 JSON을 반환하는지 확인합니다. HTML 화면이 나오면 API rewrite와 재배포 여부를 확인합니다.
+2. `https://expense-tracker-lake-eight-39.vercel.app/api/health`도 같은 JSON을 반환하는지 확인합니다. HTML 화면이 나오면 API rewrite와 재배포 여부를 확인합니다.
 3. Vercel 앱의 설정에서 `서버 API 주소`를 `/api`, `개인 접속키`를 서버의 `APP_ACCESS_TOKEN` 값으로 저장합니다.
-4. 브라우저 개발자 도구의 Network에서 API 요청 주소가 `https://your-frontend.vercel.app/api/…`인지 확인합니다. HTTP 공인 IP를 브라우저가 직접 호출한다면 Vercel 환경변수와 앱에 저장된 주소를 다시 확인합니다.
+4. 브라우저 개발자 도구의 Network에서 API 요청 주소가 `https://expense-tracker-lake-eight-39.vercel.app/api/…`인지 확인합니다. HTTP 공인 IP를 브라우저가 직접 호출한다면 Vercel 환경변수와 앱에 저장된 주소를 다시 확인합니다.
 5. 거래를 하나 입력하고 새로고침 후에도 남아 있는지 확인합니다. 다른 기기에서도 `/api`와 같은 접속키로 접속할 수 있습니다.
 6. 백업을 내려받아 파일이 생성되는지 확인합니다. 복원은 현재 데이터를 백업 내용으로 바꾸는 동작입니다.
 

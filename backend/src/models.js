@@ -51,6 +51,44 @@ export const analysisInput = z.strictObject({
 });
 const timestamp = text().min(1).max(60).refine(value => !Number.isNaN(Date.parse(value)), '유효한 시간 형식이어야 합니다.');
 const timestampFields = { created_at: timestamp, updated_at: timestamp };
+const shortcutSource = z.enum(['toss', 'kb']);
+const shortcutStatus = z.enum(['pending', 'recorded', 'ignored', 'duplicate']);
+const shortcutConnectionFields = {
+  name: text().min(1).max(120), source: shortcutSource, account_id: identifier,
+  match_text: text().max(200).default(''), category_id: identifier.nullable().default(null),
+  tag_ids: tagIds.default([]), auto_record: z.boolean().default(false), enabled: z.boolean().default(true),
+};
+export const shortcutConnectionInput = z.strictObject(shortcutConnectionFields);
+export const shortcutConnectionPatch = z.strictObject({
+  name: text().min(1).max(120).optional(), source: shortcutSource.optional(), account_id: identifier.optional(),
+  match_text: text().max(200).optional(), category_id: identifier.nullable().optional(),
+  tag_ids: tagIds.optional(), auto_record: z.boolean().optional(), enabled: z.boolean().optional(),
+});
+export const shortcutIngestInput = z.strictObject({
+  title: text().max(500).default(''), subtitle: text().max(1000).default(''),
+  body: text().min(1).max(12000), source_app: text().max(200).default(''),
+  occurred_at: text().max(60).optional(), event_id: text().min(1).max(200).optional(),
+});
+export const shortcutEventQuery = z.object({
+  status: shortcutStatus.optional(), limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+export const shortcutRecordInput = z.strictObject({ transaction: transactionInput });
+const shortcutParsed = z.strictObject({
+  date: isoDate, amount: money.nullable(), kind: text().max(40).nullable(), note: text().max(5000),
+  account_id: identifier.nullable(), category_id: identifier.nullable(), tag_ids: tagIds,
+});
+const shortcutConnectionBackup = z.strictObject({
+  ...shortcutConnectionFields, account_id: identifier.nullable(), id: identifier,
+  last_received_at: timestamp.nullable(), created_at: timestamp,
+});
+const shortcutEventBackup = z.strictObject({
+  id: identifier, connection_id: identifier, connection_name: text().min(1).max(120), source: shortcutSource,
+  title: text().max(500), subtitle: text().max(1000), body: text().min(1).max(12000), source_app: text().max(200),
+  occurred_at: timestamp.nullable(), received_at: timestamp, status: shortcutStatus,
+  reason: text().max(1000), parsed: shortcutParsed, transaction_id: identifier.nullable(),
+  external_event_id: text().min(1).max(200).nullable().optional(),
+  transaction_time: timestamp.nullable().optional(),
+});
 export const backupInput = z.strictObject({
   schema_version: z.literal(1), exported_at: timestamp,
   accounts: z.array(z.strictObject({ id: identifier, name: text().min(1).max(120), description: text().max(5000), color, archived: z.boolean().default(false) })).max(1000),
@@ -59,6 +97,8 @@ export const backupInput = z.strictObject({
   transactions: z.array(z.strictObject({ ...transactionFields, ...timestampFields, id: identifier, version })).max(100000),
   budgets: z.array(z.strictObject({ tag_id: identifier, month, amount: money })).max(100000),
   workspaces: z.array(z.strictObject({ ...workspaceFields, ...timestampFields, id: identifier, version })).max(10000),
+  shortcuts_connections: z.array(shortcutConnectionBackup).max(1000).optional(),
+  shortcuts_events: z.array(shortcutEventBackup).max(100000).optional(),
   settings: snapshot.default({}),
 });
 export const transactionQuery = z.object({

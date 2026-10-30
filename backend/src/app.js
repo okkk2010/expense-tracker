@@ -6,6 +6,7 @@ import { createDatabase } from './db.js';
 import * as services from './services.js';
 import * as models from './models.js';
 import { analyzeRequest } from './analysis.js';
+import { registerShortcuts } from './shortcuts.js';
 
 function httpError(statusCode, detail) {
   return Object.assign(new Error(typeof detail === 'string' ? detail : '요청을 처리하지 못했습니다.'), { statusCode, detail });
@@ -13,8 +14,15 @@ function httpError(statusCode, detail) {
 
 export async function createApp(options = {}) {
   const settings = loadSettings(options);
+  const requestedLogger = options.logger ?? false;
+  const redactions = typeof requestedLogger === 'object' ? requestedLogger.redact : [];
+  const logger = !requestedLogger ? false : {
+    ...(typeof requestedLogger === 'object' ? requestedLogger : {}),
+    redact: { paths: [...(Array.isArray(redactions) ? redactions : redactions?.paths ?? []),
+      'req.headers.authorization', 'request.headers.authorization', 'token', '*.token', 'token_hash', '*.token_hash'], remove: true },
+  };
   const app = Fastify({
-    logger: options.logger ?? false,
+    logger,
     bodyLimit: settings.restoreMaxBytes,
     requestTimeout: 60_000,
   });
@@ -28,7 +36,12 @@ export async function createApp(options = {}) {
   app.decorate('database', db);
   app.addHook('onClose', () => db.close());
   app.addHook('onRequest', async (request, reply) => {
-    if (request.url.split('?')[0] === '/api/health' || !settings.accessToken) return;
+    const path = request.url.split('?')[0];
+    if (request.method === 'POST' && path === '/api/shortcuts/ingest') return;
+    if ((path === '/api/shortcuts' || path.startsWith('/api/shortcuts/')) && !settings.accessToken) {
+      throw httpError(503, '단축어 연결을 사용하려면 서버의 APP_ACCESS_TOKEN을 먼저 설정해 주세요.');
+    }
+    if (path === '/api/health' || !settings.accessToken) return;
     const authorization = request.headers.authorization;
     const supplied = typeof authorization === 'string' && authorization.startsWith('Bearer ')
       ? authorization.slice(7) : '';
@@ -39,10 +52,12 @@ export async function createApp(options = {}) {
       throw httpError(401, '접속 토큰을 확인해 주세요.');
     }
   });
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error, request, reply) => {
     if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
-      return reply.code(413).send({ detail: '백업 파일은 10MB 이하로 복원해 주세요.' });
+      return reply.code(413).send({ detail: request.url.split('?')[0] === '/api/shortcuts/ingest'
+        ? '알림 전송 내용은 16KB 이하로 보내 주세요.' : '백업 파일은 10MB 이하로 복원해 주세요.' });
     }
+    if (error.statusCode === 503) return reply.code(503).send({ detail: error.detail ?? error.message });
     if (error.statusCode >= 400 && error.statusCode < 500) {
       const status = error.statusCode === 400 ? 422 : error.statusCode;
       return reply.code(status).send({ detail: error.detail ?? (status === 422 ? '유효한 JSON 또는 입력 형식이 아닙니다.' : error.message) });
@@ -101,6 +116,7 @@ export async function createApp(options = {}) {
       if (db.prepare('SELECT 1 FROM transactions WHERE account_id=? LIMIT 1').get(request.params.id)) {
         throw httpError(409, '거래에 사용된 금융수단은 삭제할 수 없습니다. 기록을 유지하려면 금융수단을 보관해 주세요.');
       }
+      db.prepare('UPDATE shortcut_connections SET account_id=NULL,auto_record=0,enabled=0 WHERE account_id=?').run(request.params.id);
       db.prepare('DELETE FROM accounts WHERE id=?').run(request.params.id);
     });
     return reply.code(204).send();
@@ -190,6 +206,10 @@ export async function createApp(options = {}) {
           .run(services.now(), request.params.id);
         db.prepare('DELETE FROM transaction_tags WHERE tag_id=?').run(request.params.id);
         db.prepare('DELETE FROM budgets WHERE tag_id=?').run(request.params.id);
+        for (const item of db.prepare('SELECT id,tag_ids FROM shortcut_connections').all()) {
+          const tagIds = JSON.parse(item.tag_ids).filter(id => id !== request.params.id);
+          db.prepare('UPDATE shortcut_connections SET tag_ids=? WHERE id=?').run(JSON.stringify(tagIds), item.id);
+        }
         db.prepare('DELETE FROM tags WHERE id=?').run(request.params.id);
       }
     });
@@ -236,6 +256,7 @@ export async function createApp(options = {}) {
     if (payload.reference === null) delete payload.reference;
     return analyzeRequest(payload, filters => services.query_transactions(db, filters).items, context());
   });
+  registerShortcuts(app, { db, settings, atomic });
   await app.ready();
   return app;
 }

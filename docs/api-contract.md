@@ -26,6 +26,30 @@ Base: `/api`. JSON camel_case is NOT used; field names below are snake_case. IDs
 - GET `/backup` -> JSON backup including schema_version and all user data. POST `/restore` with that JSON -> `{restored:true}`; validate all references and replace atomically. Secrets excluded.
 - POST `/analysis` `{prompt,filters?:{start,end,tag_ids,tag_mode,category_id,account_id},reference?:{cards,layout,request_summary,filters}}` -> `{status:"complete"|"clarification",message?,cards:[],provider:"rules"|"compatible",suggestions?:[]}`.
 
+## iPhone Shortcuts collection
+
+Management endpoints below require a configured `APP_ACCESS_TOKEN` and the normal personal Bearer credential. Collection keys are random per-connection credentials, stored only as hashes. They authorize **only** `POST /shortcuts/ingest`; they cannot read the ledger or manage connections. Tokens are returned once at creation/rotation and never in lists or backups.
+
+- POST `/accounts` `{name,description?,color?}` -> Account (201). Allows a bank account to be added separately from the initial credit-card account.
+- GET `/shortcuts/connections` -> `{items:[]}`.
+- POST `/shortcuts/connections` `{name,source:"toss"|"kb",account_id,match_text?,category_id?,tag_ids?,auto_record?,enabled?}` -> `{connection,token}` (201). Explicit account mapping is required; auto-record defaults off.
+- PATCH `/shortcuts/connections/{id}` updates the public connection fields; DELETE revokes the credential and preserves historical collection events.
+- POST `/shortcuts/connections/{id}/rotate` -> `{connection,token}`. Old credential is immediately revoked. Restored connections need rotation before enabling.
+- POST `/shortcuts/ingest` uses `Authorization: Bearer <dedicated collection key>`, JSON `{body,title?,subtitle?,source_app?,occurred_at?,event_id?}`; body limit16KiB. `occurred_at` is an ISO timestamp with timezone. `event_id`, if supplied, identifies the original event and must survive retries. Returns `{status:"recorded"|"pending"|"duplicate",event_id,transaction_id,message}`.
+- GET `/shortcuts/events?status=pending|recorded|ignored|duplicate&limit=100` -> `{items:[]}`. Omit status for all.
+- POST `/shortcuts/events/{id}/record` `{transaction:TransactionDraft}` -> `{event,transaction}`. Repeating a completed record returns its original transaction. Ignored events cannot be recorded; refund/cancellation events must be handled by adjusting the original transaction, not inserting new income/expense.
+- POST `/shortcuts/events/{id}/ignore` -> `{event}`. Repeating ignore is safe; an already recorded transaction is not silently removed.
+
+Connection: `{id,name,source,account_id,match_text,category_id,tag_ids,auto_record,enabled,last_received_at,created_at}`. Source is the collection app; it does not imply bank/card identity.
+
+Event: `{id,connection_id,connection_name,source,title,subtitle,body,source_app,occurred_at,received_at,status,reason,parsed,transaction_id}`. `parsed` is a proposed draft, with nullable amount/kind/account/category. The parser may set `kind:"refund"` for review only; this is not a valid ledger transaction kind. Original events are kept separate from posted ledger transactions.
+
+Auto-posting requires a confident KRW payment approval, an explicitly linked account and matching identification phrase, valid category/tags, and no duplicate/uncertainty condition. Generic withdrawals, transfers, settlement, cancellation/refund and foreign currency are held for review. Parsing is local server code and does not send raw notifications to the optional AI provider. Stable event ID or full normalized notification plus supplied notification timestamp supports retry deduplication. Without stable event identity, identical recent text is held for review rather than silently dropping a potentially separate real purchase. Cross-source likely duplicates are held for review.
+
+Schema-version1 backups accept optional `shortcuts_connections` and `shortcuts_events`; old backups remain valid. No reusable collection credential is exported. Restored connections are disabled and automatic recording is turned off until the user rekeys and reviews them.
+
+Device setup and platform limitations: [iPhone setup](iphone-shortcuts.md). Server-side tests do not establish that a particular iOS/bank app forwards notification content.
+
 ## Analysis module interface
 
 `backend/src/analysis.js` exports `async function analyzeRequest(payload, queryTransactions, context)`.
