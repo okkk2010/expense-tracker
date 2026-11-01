@@ -1,0 +1,85 @@
+{
+  "scope": "Independent local extraction of signed AEA profile-0 payloads, decompression, segment SHA-256, and complete workflow-action/import-question comparison against the exact unsigned templates.",
+  "all_files_passed": true,
+  "decoder": "lzfse 0.4.2.post1 installed only in .local/shortcut-verify-deps",
+  "metadata_normalization": {
+    "WFWorkflowClientVersion": {
+      "unsigned": "4528.0.4.2",
+      "signed": "1505.3"
+    },
+    "WFWorkflowIcon": {
+      "unsigned": {},
+      "signed": {
+        "WFWorkflowIconStartColor": 0,
+        "WFWorkflowIconGlyphNumber": 0
+      }
+    }
+  },
+  "limitations": [
+    "The full plist is not byte-identical: only the two explicitly listed metadata fields were normalized by the signer.",
+    "Apple CMS/ECDSA certificate trust and AEA HMAC chains were not independently verified.",
+    "iPhone import and execution have not been tested."
+  ],
+  "files": {
+    "moa-toss.shortcut": {
+      "verification_passed": true,
+      "payload_matches_original": false,
+      "all_actions_and_parameters_match": true,
+      "import_questions_match": true,
+      "metadata_normalization_only": true,
+      "differing_top_level_keys": [
+        "WFWorkflowClientVersion",
+        "WFWorkflowIcon"
+      ],
+      "unapproved_differing_keys": [],
+      "signature_trust_verification": "not_performed",
+      "iphone_import_execution": "not_tested",
+      "signed_sha256": "3475d49b51c19db16a08d3fde9c8b2c6fdb9f60e90c9c659332e545c063c446c",
+      "original_workflow_sha256": "fb59aeff9c06602e95024d2d6b1cd74da15d303bec7a016ec92e1b3a81d99e10",
+      "extracted_workflow_sha256": "eb12d352c1f391a07f21f867cf8e0c0240929760cea766f3359ce8bfb589b9a4",
+      "expected_actions": 21,
+      "extracted_actions": 21,
+      "archive_paths": [
+        "",
+        "Shortcut.wflow"
+      ],
+      "profile": 0,
+      "clusters": 1,
+      "segments": 1,
+      "segment_sha256_verified": true,
+      "compression": "e",
+      "archive_bytes": 5011,
+      "signing_certificate_chain_present": true
+    },
+    "moa-kb.shortcut": {
+      "verification_passed": true,
+      "payload_matches_original": false,
+      "all_actions_and_parameters_match": true,
+      "import_questions_match": true,
+      "metadata_normalization_only": true,
+      "differing_top_level_keys": [
+        "WFWorkflowClientVersion",
+        "WFWorkflowIcon"
+      ],
+      "unapproved_differing_keys": [],
+      "signature_trust_verification": "not_performed",
+      "iphone_import_execution": "not_tested",
+      "signed_sha256": "43b7a50a2d32b917997bcbf59d88df89e0c85c01b106c62f2a28024de6048050",
+      "original_workflow_sha256": "a2ba0d7809523b2d634e53024b9cbaf4bff8cd5f2e7140d12dac23b64de9e749",
+      "extracted_workflow_sha256": "c544f85239c8a85f20ca85f7bb294c210663b218d0afe0def36f5de271148b4d",
+      "expected_actions": 21,
+      "extracted_actions": 21,
+      "archive_paths": [
+        "",
+        "Shortcut.wflow"
+      ],
+      "profile": 0,
+      "clusters": 1,
+      "segments": 1,
+      "segment_sha256_verified": true,
+      "compression": "e",
+      "archive_bytes": 5035,
+      "signing_certificate_chain_present": true
+    }
+  }
+}

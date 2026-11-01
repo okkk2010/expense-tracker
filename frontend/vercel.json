@@ -4,9 +4,17 @@
   "framework": "vite",
   "rewrites": [
     { "source": "/api/:path*", "destination": "http://115.68.223.74:8000/api/:path*" },
-    { "source": "/((?!api(?:/|$)).*)", "destination": "/index.html" }
+    { "source": "/((?!api(?:/|$)|shortcuts(?:/|$)).*)", "destination": "/index.html" }
   ],
   "headers": [
+    {
+      "source": "/shortcuts/:path*",
+      "headers": [
+        { "key": "Content-Type", "value": "application/octet-stream" },
+        { "key": "Content-Disposition", "value": "attachment" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
     {
       "source": "/api/:path*",
       "headers": [

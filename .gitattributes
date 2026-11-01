@@ -1,0 +1,4 @@
+frontend/public/shortcuts/*.shortcut binary
+shortcuts/signed/*.shortcut binary
+shortcuts/*.zip binary
+shortcuts/unsigned/*.plist text eol=lf

@@ -1,0 +1,21 @@
+{
+  "created_at": "2026-10-30T20:03:35.522893+00:00",
+  "signer": "https://hubsign.routinehub.services/sign",
+  "phone_import_verified": false,
+  "artifacts": [
+    {
+      "file": "moa-kb.shortcut",
+      "bytes": 24320,
+      "format": "AEA1",
+      "unsigned_sha256": "a3e09d99f1da38d26c35d76f9425964b366afebb758c007ca0f984bb7e6f1352",
+      "signed_sha256": "43b7a50a2d32b917997bcbf59d88df89e0c85c01b106c62f2a28024de6048050"
+    },
+    {
+      "file": "moa-toss.shortcut",
+      "bytes": 24310,
+      "format": "AEA1",
+      "unsigned_sha256": "adcdcfbe7e0191d356a6176bf0d1ea66003cb9d853a571adfc66e4989878aaba",
+      "signed_sha256": "3475d49b51c19db16a08d3fde9c8b2c6fdb9f60e90c9c659332e545c063c446c"
+    }
+  ]
+}

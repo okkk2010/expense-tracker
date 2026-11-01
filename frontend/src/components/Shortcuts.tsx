@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, Eye, EyeOff, KeyRound, Link2, Plus, RefreshCw, Settings2, Smartphone, Trash2 } from 'lucide-react'
+import { Check, Copy, Download, Eye, EyeOff, KeyRound, Link2, Plus, RefreshCw, Settings2, Smartphone, Trash2 } from 'lucide-react'
 import { api, errorMessage, getConnection, json } from '../api'
 import { activeShortcutAccounts, shortcutIngestEndpoint } from '../shortcuts'
 import type { Account, Kind, ScreenProps, TransactionDraft } from '../types'
@@ -175,7 +175,9 @@ export function Shortcuts({ bootstrap, demo, connected, refreshKey, onRefresh, n
 
   return <section className="panel settings-panel shortcuts-panel" aria-labelledby="shortcuts-title">
     <div className="section-heading"><div className="setting-title"><span className="setting-icon"><Smartphone size={20}/></span><div><h2 id="shortcuts-title">iPhone 자동 수집</h2><p>단축어로 전달한 금융 알림을 금융수단별로 기록해요.</p></div></div><button className="secondary-button small-button" type="button" onClick={() => setSetupOpen(true)}>아이폰 연결 방법</button></div>
-    <p className="shortcut-callout">iOS 26.6에서는 토스·KB스타뱅킹의 앱 푸시 알림을 단축어로 자동 수집할 수 없어요. 실제로 받는 결제·입출금 문자가 있다면 ‘메시지’ 자동화를 사용할 수 있습니다. 앱 알림 자동화는 iOS 27에 추가된 기능이며, 토스·KB 알림 내용의 전달 여부는 실기기로 확인해야 해요. <a className="shortcut-support-link" href="https://support.apple.com/ko-kr/149045" target="_blank" rel="noopener noreferrer">Apple 지원 버전 안내</a></p>
+    <ShortcutInstallLinks/>
+    <p className="shortcut-help shortcut-install-help">아이폰에서 내려받은 파일을 열고, 설치 질문에 각 연결의 전용 헤더 값을 입력하세요. 알림 본문 연결은 한 번만 설정하면 돼요. URL·JSON 설정은 설치 파일에 들어 있어요.</p>
+    <p className="shortcut-callout">iOS 27 이상에서는 ‘알림’ 자동화로 대상 앱의 본문을 연결하세요. 토스·KB스타뱅킹 알림 내용의 전달 여부는 실기기로 확인해야 해요. 앱 알림 자동화가 없는 버전에서는 실제로 받는 금융 문자가 있을 때 ‘메시지’ 자동화를 사용할 수 있어요. <a className="shortcut-support-link" href="https://support.apple.com/ko-kr/149045" target="_blank" rel="noopener noreferrer">Apple 지원 버전 안내</a></p>
     {!ready ? <p className="shortcut-callout">{demo ? '둘러보기에서는 수집 연결을 만들지 않아요. 실제 서버에 연결해 주세요.' : !connected ? '위의 서버 연결을 먼저 완료해 주세요.' : '개인 접속키가 설정된 서버가 필요해요. 서버의 APP_ACCESS_TOKEN을 설정한 뒤 위의 연결 정보에 같은 키를 입력해 주세요.'}</p> : <>
       {endpointError && <p className="shortcut-callout shortcut-error" role="alert">{endpointError}</p>}
       {localAddress && <p className="shortcut-callout">현재 주소는 이 컴퓨터에서만 접속할 수 있어요. 아이폰에서 접속할 수 있는 내 서버 주소를 서버 연결에 저장한 뒤 단축어를 설정해 주세요.</p>}
@@ -239,16 +241,38 @@ export function Shortcuts({ bootstrap, demo, connected, refreshKey, onRefresh, n
   </section>
 }
 
+function ShortcutInstallLinks({ source }: { source?: Source }) {
+  const sources: Source[] = source ? [source] : ['toss', 'kb']
+  return <div className="shortcut-install-links" aria-label="아이폰 단축어 설치 파일">
+    {sources.map(item => <a className="secondary-button shortcut-install-link" key={item} href={`/shortcuts/moa-${item}.shortcut`} download={item === 'toss' ? '모아-토스-알림수집.shortcut' : '모아-국민은행-알림수집.shortcut'}><Download size={17} aria-hidden="true"/><span>{item === 'toss' ? '토스 단축어 설치' : '국민은행 단축어 설치'}</span></a>)}
+  </div>
+}
+
 function ShortcutInstructions({ endpoint, source, onCopy }: { endpoint: string; source?: Source; onCopy: (value: string, label: string) => Promise<void> }) {
   return <div className="shortcut-instructions">
+    <ShortcutInstallLinks source={source}/>
+    <p className="shortcut-help shortcut-install-help">설치 파일에는 모아 기본 서버의 주소와 JSON 설정이 들어 있어요. URL·JSON을 새로 만들 필요 없이 아래 연결만 완료해 주세요.</p>
     <ol>
-      <li><strong>수집할 문자·알림 확인</strong><p>{source ? sourceName[source] : '토스·KB스타뱅킹'}에서 실제로 받는 금융 알림을 확인하세요. 금액과 계좌·카드 구분 문구가 있어야 해요. 앱 알림과 문자(SMS)는 서로 다른 수집 경로예요.</p></li>
-      <li><strong>iOS에 맞는 자동화 만들기</strong><p><b>iOS 26.6:</b> 실제 결제·입출금 문자를 받는 경우에만 ‘메시지’ 자동화를 만들고 발신자·본문 조건을 설정하세요. 토스·KB 앱의 푸시 알림을 이 경로로 받을 수는 없어요. 해당 금융기관이 문자를 보내는지도 먼저 확인해야 해요.</p><p><b>iOS 27 이상:</b> 단축어 편집기의 자동화에서 ‘알림’을 선택한 뒤 대상 앱과 연결별 구분 문구를 설정하세요. 실제 알림 내용이 전달되는지는 별도 확인해야 해요. <a className="shortcut-support-link" href="https://support.apple.com/ko-kr/149045" target="_blank" rel="noopener noreferrer">Apple의 iOS 27 새로운 자동화 안내</a></p></li>
-      <li><strong>‘URL의 콘텐츠 가져오기’ 추가</strong><p>아래 주소를 넣고 메서드는 <b>POST</b>, 요청 본문은 <b>JSON</b>을 선택하세요.</p><div className="shortcut-copy-field"><code>{endpoint || '서버 연결 주소를 먼저 확인해 주세요.'}</code><button className="icon-button" type="button" disabled={!endpoint} aria-label="수집 주소 복사" onClick={() => void onCopy(endpoint, '수집 주소를')}><Copy size={15}/></button></div></li>
-      <li><strong>헤더에 전용 수집키 넣기</strong><p><code>Authorization</code>에 <code>Bearer 수집키</code>를 입력하세요. 연결 생성·재발급 창에서 ‘헤더 값 복사’를 누르면 돼요. 서버의 개인 접속키와 다른 키예요.</p></li>
-      <li><strong>JSON 필드에 알림 변수 연결</strong><div className="shortcut-fields"><div><code>body</code><span>필수 · 알림 변수의 Body/본문</span></div><div><code>title</code><span>선택 · Title/제목</span></div><div><code>subtitle</code><span>선택 · Subtitle/부제목</span></div><div><code>source_app</code><span>선택 · App/앱 이름</span></div><div><code>occurred_at</code><span>선택 · 알림 Date를 ISO 8601 형식으로 변환</span></div><div><code>event_id</code><span>선택 · 재전송할 때 유지할 동일한 이벤트 ID</span></div></div><p>값에는 고정 예시 문구 대신 알림 변수를 넣으세요. 메시지 자동화는 <code>body</code>에 단축어 입력의 메시지 본문을 연결하면 돼요. 없는 선택 필드는 생략하세요.</p><button type="button" className="text-button" onClick={() => void onCopy(requestTemplate, '필드 구성 예시를')}><Copy size={13}/>필드 구성 예시 복사</button></li>
+      <li><strong>전용 헤더로 단축어 설치</strong><p>모아에서 {source ? sourceName[source] : '해당 앱'} 수집 연결을 만든 뒤 ‘헤더 값 복사’를 누르세요. 아이폰에서 내려받은 파일을 열고 설치 질문에 <code>Bearer …</code>로 시작하는 전체 값을 붙여넣으세요. 서버 접속키와 다른 전용 키예요.</p></li>
+      <li><strong>대상 앱의 자동화 만들기</strong><p><b>iOS 27 이상:</b> 단축어 앱의 자동화에서 ‘알림’을 선택하고 {source ? sourceName[source] : '수집할 앱'}과 연결별 구분 문구를 지정하세요. 금액과 계좌·카드 구분 문구가 포함된 알림을 사용하세요. <a className="shortcut-support-link" href="https://support.apple.com/ko-kr/149045" target="_blank" rel="noopener noreferrer">Apple 지원 버전 안내</a></p><p>앱 알림 자동화가 없는 버전에서는 실제 결제·입출금 문자를 받는 경우에만 ‘메시지’ 자동화를 사용하세요. 앱 푸시 알림이 문자로 바뀌어 수집되는 것은 아니에요.</p></li>
+      <li><strong>설치한 단축어에 본문 연결 · 최초 1회</strong><p>자동화에 ‘단축어 실행’을 추가하고 설치한 {source === 'kb' ? '국민은행' : source === 'toss' ? '토스' : '해당 앱의'} 단축어를 선택하세요. 실행 입력에는 알림·메시지의 <b>본문 텍스트</b>를 연결하세요. 본문을 비워 두면 전송하지 않아요.</p></li>
       <li><strong>자동 실행을 켜고 실제 수신 확인</strong><p>해당 iOS에서 지원하는 자동 실행 설정과 필요한 동작 권한을 허용하세요. 새 알림이 온 뒤 이 화면의 ‘마지막 수신’을 확인하세요. 연결 전의 과거 알림은 가져오지 않아요.</p></li>
     </ol>
-    <p className="shortcut-callout">아이폰에서 접속할 수 있는 HTTPS 서버 주소를 사용하세요. 서버가 꺼져 있거나 인터넷이 끊기면 전송되지 않으니 단축어 실행 결과와 수집함을 확인해 주세요.</p>
+    <details className="shortcut-manual"><summary>직접 만드는 경우 · URL·JSON 수동 설정</summary>
+      <p className="shortcut-help">설치 파일을 사용하면 이 과정은 필요 없어요. 다른 서버를 쓰거나 단축어를 직접 만들 때 아래 설정을 사용하세요.</p>
+      <ManualShortcutInstructions endpoint={endpoint} onCopy={onCopy}/>
+    </details>
+    <p className="shortcut-callout">서버가 꺼져 있거나 인터넷이 끊기면 전송되지 않아요. 실제 알림이 온 뒤 단축어 실행 결과와 수집함을 확인해 주세요.</p>
+  </div>
+}
+
+function ManualShortcutInstructions({ endpoint, onCopy }: { endpoint: string; onCopy: (value: string, label: string) => Promise<void> }) {
+  return <div className="shortcut-manual-content">
+    <ol>
+      <li><strong>‘URL의 콘텐츠 가져오기’ 추가</strong><p>아래 주소를 넣고 메서드는 <b>POST</b>, 요청 본문은 <b>JSON</b>을 선택하세요.</p><div className="shortcut-copy-field"><code>{endpoint || '서버 연결 주소를 먼저 확인해 주세요.'}</code><button className="icon-button" type="button" disabled={!endpoint} aria-label="수집 주소 복사" onClick={() => void onCopy(endpoint, '수집 주소를')}><Copy size={15}/></button></div></li>
+      <li><strong>헤더에 전용 수집키 넣기</strong><p><code>Authorization</code>에 <code>Bearer 수집키</code>를 입력하세요. 연결 생성·재발급 창에서 ‘헤더 값 복사’를 누르면 돼요.</p></li>
+      <li><strong>JSON 필드에 알림 변수 연결</strong><div className="shortcut-fields"><div><code>body</code><span>필수 · 알림·메시지의 본문 텍스트</span></div><div><code>title</code><span>선택 · Title/제목</span></div><div><code>subtitle</code><span>선택 · Subtitle/부제목</span></div><div><code>source_app</code><span>선택 · App/앱 이름</span></div><div><code>occurred_at</code><span>선택 · 알림 Date를 ISO 8601 형식으로 변환</span></div><div><code>event_id</code><span>선택 · 재전송할 때 유지할 동일한 이벤트 ID</span></div></div><p>값에는 고정 예시 문구 대신 알림 변수를 넣으세요. 없는 선택 필드는 생략하세요.</p><button type="button" className="text-button" onClick={() => void onCopy(requestTemplate, '필드 구성 예시를')}><Copy size={13}/>필드 구성 예시 복사</button></li>
+    </ol>
+    <p className="shortcut-help">아이폰에서 접속할 수 있는 HTTPS 서버 주소를 사용하세요.</p>
   </div>
 }
